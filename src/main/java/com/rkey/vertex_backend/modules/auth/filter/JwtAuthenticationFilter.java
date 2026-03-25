@@ -1,6 +1,8 @@
 package com.rkey.vertex_backend.modules.auth.filter;
 
+import com.rkey.vertex_backend.modules.auth.mapper.UserMapper;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserSummary;
+import com.rkey.vertex_backend.modules.auth.repository.UserRepository;
 import com.rkey.vertex_backend.modules.auth.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,15 +19,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Collections;
 
-/**
- * Filter that executes once per request to validate JWT tokens in the Authorization header.
- * If valid, it populates the SecurityContextHolder for the remainder of the request lifecycle.
- */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository; 
+    private final UserMapper userMapper;         
 
     @Override
     protected void doFilterInternal(
@@ -37,7 +37,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
-        // Skip filter if no Bearer token is present
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -46,25 +45,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         jwt = authHeader.substring(7);
         userEmail = jwtService.extractEmail(jwt);
 
-        // If email is present and user is not already authenticated in this context
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             
-            // In a full implementation, you'd likely fetch the UserDetails from a DB here.
-            // For now, we wrap the email into a UserSummary to check validity.
-            UserSummary userSummary = new UserSummary(userEmail); 
+            // 1. Fetch the real entity from DB
+            userRepository.findByEmail(userEmail).ifPresent(userEntity -> {
+                
+                // 2. Map entity to UserSummary (This uses all 5 strings, fixing the error)
+                UserSummary userSummary = userMapper.getUserSummary(userEntity);
 
-            if (jwtService.isTokenValid(jwt, userSummary)) {
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userSummary,
-                        null,
-                        Collections.emptyList() // Add Authorities/Roles here if needed
-                );
-                
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                
-                // Update the Security Context
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-            }
+                // 3. Validate token against the summary
+                if (jwtService.isTokenValid(jwt, userSummary)) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userSummary,
+                            null,
+                            Collections.emptyList()
+                    );
+                    
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            });
         }
         
         filterChain.doFilter(request, response);

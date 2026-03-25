@@ -1,7 +1,5 @@
 package com.rkey.vertex_backend.modules.auth.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
-
 import com.rkey.vertex_backend.core.api.ApiResponse;
 import com.rkey.vertex_backend.core.api.auth.LoginResponseDTO;
 import com.rkey.vertex_backend.core.api.auth.RegistrationResponseDTO;
@@ -29,7 +27,7 @@ public class AuthService {
 
     public ApiResponse<AccountVerificationDTO> verifyAccount(AccountVerificationDTO dto){
         throw new UnsupportedOperationException("Method is not implemented yet");
-    } 
+    }
 
     public LoginResponseDTO refreshJwtToken(String refreshToken) {
         throw new UnsupportedOperationException("Method is not implemented yet");
