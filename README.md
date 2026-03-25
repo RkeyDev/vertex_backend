@@ -28,19 +28,3 @@ This system allows multiple users to design UML and System Design diagrams simul
 ## Architecture
 
 The project follows a **Modular Monolith** approach, prepared for microservice extraction. It utilizes a distributed event-driven architecture via Redis to ensure horizontal scalability across multiple backend instances.
-
-
----
-
-## Getting Started
-
-### Prerequisites
-- Docker & Docker Compose
-- Java 21 JDK
-- Maven 3.9+
-
-### Local Development
-1. **Clone the repository:**
-   ```bash
-   git clone [https://github.com/your-username/vertex-backend.git](https://github.com/your-username/vertex-backend.git)
-   cd vertex-backend
