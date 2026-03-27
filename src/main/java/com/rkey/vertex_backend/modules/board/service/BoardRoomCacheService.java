@@ -4,6 +4,9 @@ import java.util.Set;
 
 import com.rkey.vertex_backend.modules.board.models.dto.BoardStateDTO;
 
+import org.springframework.stereotype.Service;
+
+@Service
 public class BoardRoomCacheService {
     public boolean updateBoardState(String boardId,BoardStateDTO boardState){
         throw new UnsupportedOperationException("Method is not implemented yet");

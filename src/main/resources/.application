@@ -1,0 +1,7 @@
+application:
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET_KEY:your_default_very_long_and_secure_secret_key}
+      expiration: 86400000 # 24 hours in milliseconds
+      refresh-token:
+        expiration: 604800000 # 7 days in milliseconds

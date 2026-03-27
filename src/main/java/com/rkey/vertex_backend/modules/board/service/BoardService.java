@@ -9,7 +9,9 @@ import com.rkey.vertex_backend.modules.board.models.dto.NewBoardRoomDTO;
 import com.rkey.vertex_backend.modules.board.repository.BoardRepository;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
+@Service
 @RequiredArgsConstructor
 public class BoardService {
     private final BoardRepository boardRepository;

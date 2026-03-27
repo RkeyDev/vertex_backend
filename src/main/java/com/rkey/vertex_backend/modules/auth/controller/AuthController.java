@@ -31,7 +31,11 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegistrationResponseDTO>> handleRegistration(@Valid @RequestBody UserRegistrationDTO dto){
-        throw new UnsupportedOperationException("Method is not implemented yet");
+        ApiResponse<RegistrationResponseDTO> response = authService.registerUser(dto);
+        if ("400".equals(response.responseCode())) {
+            return ResponseEntity.badRequest().body(response);
+        }
+        return ResponseEntity.status(201).body(response);
     }
 
     @PostMapping("/login")
