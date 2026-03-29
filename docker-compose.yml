@@ -5,12 +5,18 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://vertex-db:5432/${DB_NAME}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME}
       - SPRING_DATASOURCE_USERNAME=${DB_USER}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
       - APPLICATION_SECURITY_JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - APPLICATION_SECURITY_JWT_EXPIRATION=86400000 # 24h in ms
-      - APPLICATION_SECURITY_JWT_REFRESH_TOKEN_EXPIRATION=604800000 # 7d in ms
+      - APPLICATION_SECURITY_JWT_EXPIRATION=86400000 
+      - APPLICATION_SECURITY_JWT_REFRESH_TOKEN_EXPIRATION=604800000 
+      - MAILTRAP_TOKEN=${MAILTRAP_TOKEN}
+      - MAILTRAP_SANDBOX=${MAILTRAP_SANDBOX:-true}
+      - MAILTRAP_INBOX_ID=${MAILTRAP_INBOX_ID}
+      - APPLICATION_FRONTEND_URL=${FRONTEND_URL}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
     depends_on:
       postgres:
         condition: service_healthy
@@ -23,6 +29,7 @@ services:
     image: postgres:16-alpine
     container_name: vertex-db
     restart: always
+    stop_grace_period: 1m
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -45,6 +52,7 @@ services:
     restart: always
     ports:
       - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"] # Ensures data persistence
     networks:
       - vertex-network
 

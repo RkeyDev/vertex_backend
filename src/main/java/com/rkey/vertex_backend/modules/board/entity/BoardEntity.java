@@ -26,6 +26,7 @@ public class BoardEntity {
     private String ownerEmail;
 
     @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<UmlComponentEntity> components = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)

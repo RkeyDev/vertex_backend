@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.rkey.vertex_backend.core.api.ApiResponse;
 import com.rkey.vertex_backend.core.api.auth.LoginResponseDTO;
 import com.rkey.vertex_backend.core.api.auth.RegistrationResponseDTO;
+import com.rkey.vertex_backend.modules.auth.model.dto.AccountVerificationDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserLoginDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserLogoutDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserRegistrationDTO;
@@ -36,6 +37,15 @@ public class AuthController {
             return ResponseEntity.badRequest().body(response);
         }
         return ResponseEntity.status(201).body(response);
+    }
+
+    @PostMapping("/verify")
+    public ResponseEntity<ApiResponse<AccountVerificationDTO>> handleVerification(@Valid @RequestBody AccountVerificationDTO dto){
+        ApiResponse<AccountVerificationDTO> response = authService.verifyAccount(dto);
+        if ("400".equals(response.responseCode())) {
+            return ResponseEntity.badRequest().body(response);
+        }
+        return ResponseEntity.ok().body(response);
     }
 
     @PostMapping("/login")
