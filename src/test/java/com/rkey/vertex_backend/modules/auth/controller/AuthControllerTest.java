@@ -1,33 +1,34 @@
 package com.rkey.vertex_backend.modules.auth.controller;
  
- import com.fasterxml.jackson.databind.ObjectMapper;
-import java.time.OffsetTime;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
- import com.rkey.vertex_backend.core.api.ApiResponse;
- import com.rkey.vertex_backend.core.api.auth.RegistrationResponseDTO;
- import com.rkey.vertex_backend.modules.auth.model.dto.AccountVerificationDTO;
- import com.rkey.vertex_backend.modules.auth.model.dto.UserRegistrationDTO;
- import com.rkey.vertex_backend.modules.auth.service.AuthService;
- import com.rkey.vertex_backend.modules.auth.service.JwtService;
- import com.rkey.vertex_backend.modules.auth.service.TokenCacheService;
- import org.junit.jupiter.api.Test;
- import org.springframework.beans.factory.annotation.Autowired;
- import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
- import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
- import org.springframework.boot.test.mock.mockito.MockBean;
- import org.springframework.context.annotation.Import;
- import org.springframework.http.MediaType;
- import org.springframework.test.web.servlet.MockMvc;
+import com.rkey.vertex_backend.core.api.ApiResponse;
+import com.rkey.vertex_backend.core.api.auth.RegistrationResponseDTO;
+import com.rkey.vertex_backend.modules.auth.model.dto.AccountVerificationDTO;
+import com.rkey.vertex_backend.modules.auth.model.dto.UserRegistrationDTO;
+import com.rkey.vertex_backend.modules.auth.service.AuthService;
+import com.rkey.vertex_backend.modules.auth.service.JwtService;
+import com.rkey.vertex_backend.modules.auth.service.TokenCacheService;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
  
- import static org.mockito.ArgumentMatchers.any;
- import static org.mockito.Mockito.when;
- import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
- import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
- import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
  
- @WebMvcTest(AuthController.class)
- @AutoConfigureMockMvc(addFilters = false) // Disable security filters for simple endpoint testing
- class AuthControllerTest {
+/**
+ * WebMvc slice test for AuthController.
+ */
+@WebMvcTest(AuthController.class)
+@AutoConfigureMockMvc(addFilters = false) // Disable security filters for simple endpoint testing
+class AuthControllerTest {
  
      @Autowired
      private MockMvc mockMvc;
@@ -92,4 +93,4 @@ import java.time.OffsetTime;
                  .andExpect(jsonPath("$.responseCode").value("200"))
                  .andExpect(jsonPath("$.message").value("Account verified successfully"));
      }
- }
+}

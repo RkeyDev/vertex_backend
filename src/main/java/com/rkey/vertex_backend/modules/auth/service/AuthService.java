@@ -8,7 +8,6 @@ import com.rkey.vertex_backend.modules.auth.model.dto.UserLoginDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserRegistrationDTO;
 import com.rkey.vertex_backend.modules.auth.repository.RefreshTokenRepository;
 import com.rkey.vertex_backend.modules.auth.repository.UserRepository;
-
 import com.rkey.vertex_backend.modules.auth.entity.UserEntity;
 import com.rkey.vertex_backend.modules.auth.entity.VerificationTokenEntity;
 import com.rkey.vertex_backend.modules.auth.model.enums.AccountRole;
@@ -19,9 +18,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
+/**
+ * Core business logic for authentication and user management.
+ */
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -57,6 +57,7 @@ public class AuthService {
                 .user(user)
                 .expiryDate(OffsetDateTime.now().plusHours(24))
                 .build();
+                
         verificationTokenRepository.save(verificationToken);
         emailService.sendVerificationEmail(user.getEmail(), token);
 
@@ -77,13 +78,13 @@ public class AuthService {
         VerificationTokenEntity tokenEntity = verificationTokenRepository.findByToken(dto.verificationToken())
                 .orElse(null);
 
-        if (tokenEntity == null || !tokenEntity.getUser().getEmail().equals(dto.email())) 
+        if (tokenEntity == null || !tokenEntity.getUser().getEmail().equals(dto.email())) {
             return new ApiResponse<>("Verification Failed", "Invalid token or email", null, "400", null);
-        
+        }
 
-        if (tokenEntity.isExpired()) 
+        if (tokenEntity.isExpired()) {
             return new ApiResponse<>("Verification Failed", "Verification token has expired", null, "400", null);
-        
+        }
 
         UserEntity user = tokenEntity.getUser();
         user.setLocked(false);
