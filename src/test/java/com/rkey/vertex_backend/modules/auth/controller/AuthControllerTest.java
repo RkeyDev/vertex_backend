@@ -1,6 +1,8 @@
 package com.rkey.vertex_backend.modules.auth.controller;
  
  import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.OffsetTime;
+
  import com.rkey.vertex_backend.core.api.ApiResponse;
  import com.rkey.vertex_backend.core.api.auth.RegistrationResponseDTO;
  import com.rkey.vertex_backend.modules.auth.model.dto.AccountVerificationDTO;
@@ -48,9 +50,9 @@ package com.rkey.vertex_backend.modules.auth.controller;
                  "John", "Doe", "john@example.com", "johndoe", "password1234", false
          );
          
-         RegistrationResponseDTO registrationResponse = new RegistrationResponseDTO("token123", "refresh123");
+         RegistrationResponseDTO registrationResponse = new RegistrationResponseDTO("john@example.com", null);
          ApiResponse<RegistrationResponseDTO> apiResponse = new ApiResponse<>(
-                 "201" , "User profile created successfully", registrationResponse);
+                 "Registration Successful", "User profile created successfully", registrationResponse, "201", null);
          
          when(authService.registerUser(any(UserRegistrationDTO.class))).thenReturn(apiResponse);
          
@@ -59,7 +61,7 @@ package com.rkey.vertex_backend.modules.auth.controller;
                  .content(objectMapper.writeValueAsString(dto)))
                  .andExpect(status().isCreated())
                  .andExpect(jsonPath("$.responseCode").value("201"))
-                 .andExpect(jsonPath("$.data.accessToken").value("token123"));
+                 .andExpect(jsonPath("$.data.email").value("john@example.com"));
      }
  
      @Test
@@ -79,7 +81,7 @@ package com.rkey.vertex_backend.modules.auth.controller;
          AccountVerificationDTO dto = new AccountVerificationDTO("token123", "john@example.com");
          
          ApiResponse<AccountVerificationDTO> apiResponse = new ApiResponse<>(
-                 "200", "Account verified successfully", dto);
+                 "Verification Successful", "Account verified successfully", dto, "200", null);
          
          when(authService.verifyAccount(any(AccountVerificationDTO.class))).thenReturn(apiResponse);
          

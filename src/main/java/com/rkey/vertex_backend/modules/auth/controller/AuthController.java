@@ -2,6 +2,7 @@ package com.rkey.vertex_backend.modules.auth.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,7 +40,7 @@ public class AuthController {
         return ResponseEntity.status(201).body(response);
     }
 
-    @PostMapping("/verify")
+    @GetMapping("/email-verification")
     public ResponseEntity<ApiResponse<AccountVerificationDTO>> handleVerification(@Valid @RequestBody AccountVerificationDTO dto){
         ApiResponse<AccountVerificationDTO> response = authService.verifyAccount(dto);
         if ("400".equals(response.responseCode())) {

@@ -22,7 +22,7 @@ package com.rkey.vertex_backend.modules.auth.service;
  
      @Test
      void generateToken_containsEmail() {
-         UserSummary summary = new UserSummary("test@example.com", "testuser", "avatar.png");
+         UserSummary summary = new UserSummary("John", "Doe", "test@example.com", "testuser", "avatar.png");
          String token = jwtService.generateToken(summary);
          
          assertNotNull(token);
@@ -31,7 +31,7 @@ package com.rkey.vertex_backend.modules.auth.service;
  
      @Test
      void isTokenValid_validToken() {
-         UserSummary summary = new UserSummary("test@example.com", "testuser", "avatar.png");
+         UserSummary summary = new UserSummary("John", "Doe", "test@example.com", "testuser", "avatar.png");
          String token = jwtService.generateToken(summary);
          
          assertTrue(jwtService.isTokenValid(token, summary));
@@ -39,10 +39,10 @@ package com.rkey.vertex_backend.modules.auth.service;
  
      @Test
      void isTokenValid_wrongEmail() {
-         UserSummary summary = new UserSummary("test@example.com", "testuser", "avatar.png");
+         UserSummary summary = new UserSummary("John", "Doe", "test@example.com", "testuser", "avatar.png");
          String token = jwtService.generateToken(summary);
          
-         UserSummary anotherSummary = new UserSummary("wrong@example.com", "wronguser", "avatar.png");
+         UserSummary anotherSummary = new UserSummary("Jane", "Smith", "wrong@example.com", "wronguser", "avatar.png");
          assertFalse(jwtService.isTokenValid(token, anotherSummary));
      }
  }

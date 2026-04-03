@@ -77,13 +77,13 @@ public class AuthService {
         VerificationTokenEntity tokenEntity = verificationTokenRepository.findByToken(dto.verificationToken())
                 .orElse(null);
 
-        if (tokenEntity == null || !tokenEntity.getUser().getEmail().equals(dto.email())) {
+        if (tokenEntity == null || !tokenEntity.getUser().getEmail().equals(dto.email())) 
             return new ApiResponse<>("Verification Failed", "Invalid token or email", null, "400", null);
-        }
+        
 
-        if (tokenEntity.isExpired()) {
+        if (tokenEntity.isExpired()) 
             return new ApiResponse<>("Verification Failed", "Verification token has expired", null, "400", null);
-        }
+        
 
         UserEntity user = tokenEntity.getUser();
         user.setLocked(false);
