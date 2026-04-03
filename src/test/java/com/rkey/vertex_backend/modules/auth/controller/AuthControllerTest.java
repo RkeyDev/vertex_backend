@@ -6,6 +6,7 @@ import com.rkey.vertex_backend.core.api.ApiResponse;
 import com.rkey.vertex_backend.core.api.auth.RegistrationResponseDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.AccountVerificationDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserRegistrationDTO;
+import com.rkey.vertex_backend.modules.auth.filter.JwtAuthenticationFilter;
 import com.rkey.vertex_backend.modules.auth.service.AuthService;
 import com.rkey.vertex_backend.modules.auth.service.JwtService;
 import com.rkey.vertex_backend.modules.auth.service.TokenCacheService;
@@ -44,6 +45,9 @@ class AuthControllerTest {
  
      @MockBean
      private JwtService jwtService;
+ 
+     @MockBean
+     private JwtAuthenticationFilter jwtAuthFilter;
  
      @Test
      void handleRegistration_success() throws Exception {
@@ -86,7 +90,7 @@ class AuthControllerTest {
          
          when(authService.verifyAccount(any(AccountVerificationDTO.class))).thenReturn(apiResponse);
          
-         mockMvc.perform(post("/api/v1/auth/verify")
+         mockMvc.perform(post("/api/v1/auth/email-verification")
                  .contentType(MediaType.APPLICATION_JSON)
                  .content(objectMapper.writeValueAsString(dto)))
                  .andExpect(status().isOk())

@@ -42,7 +42,7 @@ public class AuthController {
         return ResponseEntity.status(201).body(response);
     }
 
-    @GetMapping("/email-verification")
+    @PostMapping("/email-verification")
     public ResponseEntity<ApiResponse<AccountVerificationDTO>> handleVerification(@Valid @RequestBody AccountVerificationDTO dto){
         ApiResponse<AccountVerificationDTO> response = authService.verifyAccount(dto);
         if ("400".equals(response.responseCode())) {
