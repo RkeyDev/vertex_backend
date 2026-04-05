@@ -37,7 +37,10 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**").permitAll() 
+                
                 .requestMatchers("/api/v1/auth/**").permitAll()
+                
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated()
@@ -49,7 +52,6 @@ public class SecurityConfig {
 
         return http.build();
     }
-
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();

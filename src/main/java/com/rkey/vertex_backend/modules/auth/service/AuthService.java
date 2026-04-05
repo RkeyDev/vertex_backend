@@ -12,7 +12,11 @@ import com.rkey.vertex_backend.modules.auth.entity.UserEntity;
 import com.rkey.vertex_backend.modules.auth.entity.VerificationTokenEntity;
 import com.rkey.vertex_backend.modules.auth.model.enums.AccountRole;
 import com.rkey.vertex_backend.modules.auth.repository.VerificationTokenRepository;
+
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +26,7 @@ import java.util.UUID;
 /**
  * Core business logic for authentication and user management.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -74,23 +79,28 @@ public class AuthService {
         throw new UnsupportedOperationException("Method is not implemented yet");
     }
 
+    @Transactional
     public ApiResponse<AccountVerificationDTO> verifyAccount(AccountVerificationDTO dto){
         VerificationTokenEntity tokenEntity = verificationTokenRepository.findByToken(dto.verificationToken())
                 .orElse(null);
 
         if (tokenEntity == null || !tokenEntity.getUser().getEmail().equals(dto.email())) {
+            log.error("Verification failed - Invalid token or email");
             return new ApiResponse<>("Verification Failed", "Invalid token or email", null, "400", null);
         }
 
         if (tokenEntity.isExpired()) {
+            log.error("Verification failed - Token is expired");
             return new ApiResponse<>("Verification Failed", "Verification token has expired", null, "400", null);
         }
 
         UserEntity user = tokenEntity.getUser();
         user.setLocked(false);
-        userRepository.save(user);
+        userRepository.save(user); // Save user with updated locked state
 
-        verificationTokenRepository.delete(tokenEntity);
+        verificationTokenRepository.delete(tokenEntity); // Remove token from verification token DB
+
+        log.info("Account verification succeed!");
 
         return new ApiResponse<>("Verification Successful", "Account has been verified successfully", null, "200", null);
     }
