@@ -1,11 +1,11 @@
 package com.rkey.vertex_backend.modules.auth.service;
 
-import com.rkey.vertex_backend.modules.auth.model.dto.UserSummary;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -14,10 +14,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-/**
- * Service for handling JSON Web Token operations including generation, 
- * extraction, and validation.
- */
 @Service
 public class JwtService {
 
@@ -27,7 +23,8 @@ public class JwtService {
     @Value("${application.security.jwt.expiration}")
     private long jwtExpiration;
 
-    public String extractEmail(String token) {
+    // Standardized to extractUsername to match Filter expectations
+    public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
@@ -36,23 +33,24 @@ public class JwtService {
         return claimsResolver.apply(claims);
     }
 
-    public String generateToken(UserSummary userSummary) {
-        return generateToken(new HashMap<>(), userSummary);
+    public String generateToken(UserDetails userDetails) {
+        return generateToken(new HashMap<>(), userDetails);
     }
 
-    public String generateToken(Map<String, Object> extraClaims, UserSummary userSummary) {
+    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         return Jwts.builder()
                 .claims(extraClaims)
-                .subject(userSummary.email())
+                .subject(userDetails.getUsername()) // Using interface method
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
                 .signWith(getSignInKey())
                 .compact();
     }
 
-    public boolean isTokenValid(String token, UserSummary userSummary) {
-        final String email = extractEmail(token);
-        return (email.equals(userSummary.email())) && !isTokenExpired(token);
+    // Fixed: Now accepts UserDetails to match the Filter logic
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }
 
     private boolean isTokenExpired(String token) {

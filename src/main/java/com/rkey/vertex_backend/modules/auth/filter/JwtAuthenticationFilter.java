@@ -1,8 +1,5 @@
 package com.rkey.vertex_backend.modules.auth.filter;
 
-import com.rkey.vertex_backend.modules.auth.mapper.UserMapper;
-import com.rkey.vertex_backend.modules.auth.model.dto.UserSummary;
-import com.rkey.vertex_backend.modules.auth.repository.UserRepository;
 import com.rkey.vertex_backend.modules.auth.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -12,20 +9,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-    private final UserRepository userRepository; 
-    private final UserMapper userMapper;         
+    private final UserDetailsService userDetailsService;
 
     @Override
     protected void doFilterInternal(
@@ -43,30 +40,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         jwt = authHeader.substring(7);
-        userEmail = jwtService.extractEmail(jwt);
+        // Fixed: Renamed from extractEmail to extractUsername to match service refactor
+        userEmail = jwtService.extractUsername(jwt);
 
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            
-            // 1. Fetch the real entity from DB
-            userRepository.findByEmail(userEmail).ifPresent(userEntity -> {
-                
-                // 2. Map entity to UserSummary (This uses all 5 strings, fixing the error)
-                UserSummary userSummary = userMapper.getUserSummary(userEntity);
+            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-                // 3. Validate token against the summary
-                if (jwtService.isTokenValid(jwt, userSummary)) {
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userSummary,
-                            null,
-                            Collections.emptyList()
-                    );
-                    
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                }
-            });
+            // Fixed: Passing userDetails (interface) instead of UserSummary DTO
+            if (jwtService.isTokenValid(jwt, userDetails)) {
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
+                );
+                authToken.setDetails(
+                        new WebAuthenticationDetailsSource().buildDetails(request)
+                );
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
         }
-        
         filterChain.doFilter(request, response);
     }
 }
