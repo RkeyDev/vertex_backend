@@ -9,8 +9,11 @@ import com.rkey.vertex_backend.modules.board.models.dto.NewBoardRoomDTO;
 import com.rkey.vertex_backend.modules.board.repository.BoardRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BoardService {
@@ -25,7 +28,8 @@ public class BoardService {
     public ApiResponse<JoinBoardRoomResponseDTO> joinBoardRoom(JoinBoardRoomDTO joinBoardRoomDTO){
         throw new UnsupportedOperationException("Method is not implemented yet");
     }
-    public ApiResponse<OwnedBoardsResponse> getOwnedBoards(String userId){
-        throw new UnsupportedOperationException("Method is not implemented yet");
+    public ApiResponse<OwnedBoardsResponse> getOwnedBoards(String userEmail){
+        log.info("Recieved email: " + userEmail);
+        return new ApiResponse<OwnedBoardsResponse>("ownedBoards",null,null,"400",null);
     }
 }
