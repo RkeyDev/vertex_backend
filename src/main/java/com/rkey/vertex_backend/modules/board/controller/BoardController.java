@@ -5,6 +5,8 @@ import java.security.Principal;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -51,14 +53,20 @@ public class BoardController {
         throw new UnsupportedOperationException("Method is not implemented yet");
     }
     
-    @GetMapping("/boards")
-    public ResponseEntity<ApiResponse<OwnedBoardsResponse>> handleGetOwnedBoards(Principal principal) {
-        if(principal == null)
-            log.warn("Principal is empty!!!");
-        ApiResponse<OwnedBoardsResponse> response = boardService.getOwnedBoards(principal.getName());
+   @GetMapping("/boards")
+    public ResponseEntity<ApiResponse<OwnedBoardsResponse>> handleGetOwnedBoards(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        if (userDetails == null) {
+            log.warn("Unauthorized attempt to access boards - UserDetails is null");
+            return ResponseEntity.status(403).build();
+        }
+
+        log.info("Fetching boards for user: {}", userDetails.getUsername());
+        ApiResponse<OwnedBoardsResponse> response = boardService.getOwnedBoards(userDetails.getUsername());
 
         return "200".equals(response.responseCode())
-        ?ResponseEntity.ok(response)
-        :ResponseEntity.badRequest().body(response);
+                ? ResponseEntity.ok(response)
+                : ResponseEntity.badRequest().body(response);
     }
 }
