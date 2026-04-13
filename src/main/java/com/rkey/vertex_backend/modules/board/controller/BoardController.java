@@ -40,10 +40,28 @@ public class BoardController {
     }
     
     @PostMapping("/new-board")
-    public ApiResponse<Void> handleCreateNewBoard(
+    public ResponseEntity<ApiResponse<Void>> handleCreateNewBoard(
             @Valid @RequestBody NewBoardDTO newBoardDTO, 
             Principal principal) {
-        throw new UnsupportedOperationException("Method is not implemented yet");
+        
+        if (principal == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        try {
+            ApiResponse<Void> response = boardService.createNewBoard(newBoardDTO, principal.getName());
+            
+            if ("200".equals(response.responseCode())) {
+                return ResponseEntity.ok(response);
+            } else if ("500".equals(response.responseCode())) {
+                return ResponseEntity.internalServerError().body(response);
+            }
+            return ResponseEntity.badRequest().body(response);
+            
+        } catch (Exception e) {
+            log.error("Critical error in handleCreateNewBoard for user {}: ", principal.getName(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
     
     @PostMapping("/join-room")
