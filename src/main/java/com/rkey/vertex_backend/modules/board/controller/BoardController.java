@@ -18,6 +18,7 @@ import com.rkey.vertex_backend.core.api.board.OwnedBoardsResponse;
 import com.rkey.vertex_backend.modules.board.models.dto.JoinBoardRoomDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.NewBoardDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.NewBoardRoomDTO;
+import com.rkey.vertex_backend.modules.board.service.BoardRoomService;
 import com.rkey.vertex_backend.modules.board.service.BoardService;
 
 import jakarta.validation.Valid;
@@ -33,10 +34,18 @@ public class BoardController {
     private final BoardService boardService;
     
     @PostMapping("/new-room")
-    public ApiResponse<NewBoardRoomResponseDTO> handleNewBoardRoom(
+    public ResponseEntity<ApiResponse<NewBoardRoomResponseDTO>> handleNewBoardRoom(
             @Valid @RequestBody NewBoardRoomDTO newBoardRoomDTO, 
             Principal principal) {
-        throw new UnsupportedOperationException("Method is not implemented yet");
+        
+                ApiResponse<NewBoardRoomResponseDTO> response = boardService.createNewBoardRoom(newBoardRoomDTO,principal.getName());
+
+            if ("200".equals(response.responseCode())) {
+                return ResponseEntity.ok(response);
+            } else if ("500".equals(response.responseCode())) {
+                return ResponseEntity.internalServerError().body(response);
+            }
+            return ResponseEntity.badRequest().body(response);
     }
     
     @PostMapping("/new-board")

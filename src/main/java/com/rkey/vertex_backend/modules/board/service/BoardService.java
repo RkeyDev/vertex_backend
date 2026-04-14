@@ -24,9 +24,35 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class BoardService {
     private final BoardRepository boardRepository;
+    private final BoardRoomCacheService boardRoomCacheService;
 
-    public ApiResponse<NewBoardRoomResponseDTO> createNewBoardRoom(NewBoardRoomDTO newBoardRoomDTO){
-        throw new UnsupportedOperationException("Method is not implemented yet");
+    public ApiResponse<NewBoardRoomResponseDTO> createNewBoardRoom(NewBoardRoomDTO newBoardRoomDTO, String ownerEmail){
+        BoardEntity board = boardRepository.findByOwnerEmailAndBoardName(ownerEmail,newBoardRoomDTO.boardName()).orElse(null);
+        
+        if(board != null){
+
+            boardRoomCacheService.addUserToActiveSet(board.getToken(), ownerEmail); // Save owner email in redis
+
+
+            NewBoardRoomResponseDTO responseData = new NewBoardRoomResponseDTO(board.getToken(),board.getJosnData());
+            return new 
+            ApiResponse<NewBoardRoomResponseDTO>(
+                "Board Room Created",
+                 "Successfully created board room",
+                  responseData,
+                   "200",
+                    null
+                );
+        }
+        return new 
+            ApiResponse<NewBoardRoomResponseDTO>(
+                "Board Room Creation Failed",
+                 "Failed to create board room",
+                  null,
+                   "500",
+                    null
+                );
+
     }
     @Transactional
     public ApiResponse<Void> createNewBoard(NewBoardDTO newBoardDTO, String ownerEmail) {
