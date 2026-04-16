@@ -21,7 +21,7 @@ public class RedisConfig {
     @Value("${redis.host:localhost}")
     private String host;
 
-    @Value("${redis.port:6379}")
+    @Value("${redis.port:10076}")
     private int port;
 
     @Value("${redis.user:default}")

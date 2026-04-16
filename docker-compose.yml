@@ -22,7 +22,7 @@ services:
 
       #Redis Configuration
       - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=6379
+      - REDIS_PORT=${REDIS_PORT}
       - REDIS_USER=${REDIS_USER}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     depends_on:

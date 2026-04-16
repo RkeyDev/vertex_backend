@@ -13,4 +13,5 @@ public interface BoardRepository extends JpaRepository<BoardEntity, Long>{
     
     List<BoardEntity> findAllByOwnerEmail(String ownerEmail);
     Optional<BoardEntity> findByOwnerEmailAndBoardName(String ownerEmail, String boardName);
+    Optional<BoardEntity> findByToken(String token);
 }

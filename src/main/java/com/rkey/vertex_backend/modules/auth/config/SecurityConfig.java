@@ -17,7 +17,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -37,16 +37,22 @@ public class SecurityConfig {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/v1/auth/**").permitAll() 
-                .requestMatchers("/ws/**").permitAll()
-                .requestMatchers("/error").permitAll()
-                .anyRequest().authenticated()
-            )
+            // Use stateless sessions as we are using JWT and WebSockets
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
+            .authorizeHttpRequests(auth -> auth
+                // Auth endpoints
+                .requestMatchers("/api/auth/**", "/api/v1/auth/**").permitAll() 
+                // WebSocket Handshake - Ensure this matches the registry in WebSocketConfig
+                .requestMatchers("/ws/**").permitAll()
+                // Essential for error handling and dispatching
+                .requestMatchers("/error").permitAll()
+                // Everything else requires a valid JWT
+                .anyRequest().authenticated()
+            )
             .authenticationProvider(authenticationProvider)
+            // Ensure JWT filter is triggered before the standard auth filter
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -55,14 +61,31 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(
+        
+        // Use setAllowedOriginPatterns for more flexibility or keep explicit list
+        configuration.setAllowedOrigins(List.of(
             "http://localhost:3000", 
             "http://localhost:5173", 
-            "http://localhost:5174"
+            "http://localhost:5174",
+            "http://127.0.0.1:5173" // Add this to prevent localhost/127 mismatch
         ));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
+        
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        
+        // Essential headers for JWT and WebSocket handshake upgrades
+        configuration.setAllowedHeaders(List.of(
+            "Authorization", 
+            "Content-Type", 
+            "X-Requested-With", 
+            "Accept", 
+            "Origin",
+            "Upgrade",    // Necessary for WS handshake
+            "Connection"  // Necessary for WS handshake
+        ));
+        
         configuration.setAllowCredentials(true);
+        // How long the browser should cache the CORS response
+        configuration.setMaxAge(3600L);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

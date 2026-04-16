@@ -4,7 +4,9 @@ import com.rkey.vertex_backend.core.api.ApiResponse;
 import com.rkey.vertex_backend.core.api.board.JoinBoardRoomResponseDTO;
 import com.rkey.vertex_backend.core.api.board.NewBoardRoomResponseDTO;
 import com.rkey.vertex_backend.core.api.board.OwnedBoardsResponse;
+import com.rkey.vertex_backend.modules.auth.model.dto.UserSummary;
 import com.rkey.vertex_backend.modules.board.entity.BoardEntity;
+import com.rkey.vertex_backend.modules.board.models.dto.BoardStateDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.JoinBoardRoomDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.NewBoardDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.NewBoardRoomDTO;
@@ -15,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
@@ -26,34 +29,59 @@ public class BoardService {
     private final BoardRepository boardRepository;
     private final BoardRoomCacheService boardRoomCacheService;
 
+    public ApiResponse<NewBoardRoomResponseDTO> updateBoardState(BoardStateDTO boardStateDTO, String updaterEmail, String boardToken) {
+        if (boardStateDTO != null) {
+            Set<String> activeUsers = boardRoomCacheService.getActiveUsers(boardToken);
+            
+            if (activeUsers.contains(updaterEmail) || "anonymous".equals(updaterEmail)) {
+                
+                boardRoomCacheService.saveBoardData(boardToken, boardStateDTO.boardStateJson());
+                
+                return new ApiResponse<NewBoardRoomResponseDTO>(
+                    "Board State Updated", 
+                    "Successfully updated board state",
+                    null, 
+                    "200",
+                    null
+                );
+            } else {
+                log.warn("Sync rejected: User {} is not in the active users set for board {}.", updaterEmail, boardToken);
+            }
+        }
+
+        return new ApiResponse<NewBoardRoomResponseDTO>(
+            "Board State Update Failed", 
+            "Failed to update board state",
+            null, 
+            "500",
+            null
+        );
+    }
+
     public ApiResponse<NewBoardRoomResponseDTO> createNewBoardRoom(NewBoardRoomDTO newBoardRoomDTO, String ownerEmail){
         BoardEntity board = boardRepository.findByOwnerEmailAndBoardName(ownerEmail,newBoardRoomDTO.boardName()).orElse(null);
         
         if(board != null){
-
             boardRoomCacheService.addUserToActiveSet(board.getToken(), ownerEmail); // Save owner email in redis
 
-
             NewBoardRoomResponseDTO responseData = new NewBoardRoomResponseDTO(board.getToken(),board.getJosnData());
-            return new 
-            ApiResponse<NewBoardRoomResponseDTO>(
+            return new ApiResponse<NewBoardRoomResponseDTO>(
                 "Board Room Created",
-                 "Successfully created board room",
-                  responseData,
-                   "200",
-                    null
-                );
+                "Successfully created board room",
+                responseData,
+                "200",
+                null
+            );
         }
-        return new 
-            ApiResponse<NewBoardRoomResponseDTO>(
-                "Board Room Creation Failed",
-                 "Failed to create board room",
-                  null,
-                   "500",
-                    null
-                );
-
+        return new ApiResponse<NewBoardRoomResponseDTO>(
+            "Board Room Creation Failed",
+            "Failed to create board room",
+            null,
+            "500",
+            null
+        );
     }
+
     @Transactional
     public ApiResponse<Void> createNewBoard(NewBoardDTO newBoardDTO, String ownerEmail) {
         try {
@@ -95,9 +123,33 @@ public class BoardService {
         }
     }
 
-    public ApiResponse<JoinBoardRoomResponseDTO> joinBoardRoom(JoinBoardRoomDTO joinBoardRoomDTO){
-        throw new UnsupportedOperationException("Method is not implemented yet");
+    public ApiResponse<JoinBoardRoomResponseDTO> joinBoardRoom(JoinBoardRoomDTO joinBoardRoomDTO, String userEmail){
+        BoardEntity board = boardRepository.findByToken(joinBoardRoomDTO.boardToken()).orElse(null);
+        
+        if(board != null){
+            boardRoomCacheService.addUserToActiveSet(board.getToken(), userEmail);
+            
+            // Placeholder UserSummary for owner
+            UserSummary ownerData = new UserSummary("First", "Last", board.getOwnerEmail(), board.getOwnerEmail(), null);
+            
+            JoinBoardRoomResponseDTO responseData = new JoinBoardRoomResponseDTO(board.getBoardName(), ownerData, board.getJosnData());
+            return new ApiResponse<JoinBoardRoomResponseDTO>(
+                "Board Room Joined",
+                "Successfully joined board room",
+                responseData,
+                "200",
+                null
+            );
+        }
+        return new ApiResponse<JoinBoardRoomResponseDTO>(
+            "Board Room Join Failed",
+             "Failed to join board room",
+              null,
+               "400",
+                null
+            );
     }
+
     public ApiResponse<OwnedBoardsResponse> getOwnedBoards(String userEmail){
         List<BoardEntity> boards = boardRepository.findAllByOwnerEmail(userEmail);
 
@@ -109,6 +161,5 @@ public class BoardService {
 
         log.warn(OwnedBoardsResponse.FAILED_RESPONSE_DESCRIPTION);
         return new ApiResponse<OwnedBoardsResponse>(OwnedBoardsResponse.FAILED_RESPONSE_NAME, OwnedBoardsResponse.FAILED_RESPONSE_DESCRIPTION, null, "400", null);
-
        }
 }
