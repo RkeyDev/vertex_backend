@@ -43,33 +43,22 @@ public class BoardController {
  @MessageMapping("/board/{boardToken}/sync")
     public void handleBoardSync(
             @DestinationVariable String boardToken, 
-            @Payload String payload, 
+            @Payload BoardStateDTO stateDto, 
             Principal principal
     ) {
+        // Resolve user identity (handling both authenticated and guest sessions)
         String userEmail = (principal != null) ? principal.getName() : "anonymous";
         
-        // --- DIAGNOSTIC LOGS ---
-        log.info("[WS HIT] Received sync request for board: {}", boardToken);
-        log.info("[WS USER] Executing as: {}", userEmail);
-        log.info("[WS PAYLOAD] Payload length: {}", payload != null ? payload.length() : "NULL");
+        // Persist to Redis via BoardService
+        // This ensures that even if a user joins late, they get the latest state from the DB/Cache
+        boardService.updateBoardState(stateDto, userEmail, boardToken);
 
-        BoardStateDTO stateDto = new BoardStateDTO(payload);
-
-        ApiResponse<NewBoardRoomResponseDTO> response = boardService.updateBoardState(
-                stateDto, 
-                userEmail, 
-                boardToken
-        );
-
-        log.info("🛠️ [SERVICE RESPONSE] Code: {}, Message: {}", response.responseCode(), response.message());
-
-        if ("200".equals(response.responseCode())) {
-            String topicDestination = "/topic/board/" + boardToken;
-            messagingTemplate.convertAndSend(topicDestination, payload);
-            log.info("[BROADCAST] Successfully sent to {}", topicDestination);
-        } else {
-            log.warn("[REJECTED] Board sync rejected by service layer.");
-        }
+        // Broadcast the update to all subscribers of this board
+        // The DTO now includes the senderId for client-side filtering
+        String topicDestination = "/topic/board/" + boardToken;
+        messagingTemplate.convertAndSend(topicDestination, stateDto);
+        
+        log.debug("Broadcasted update for board {} from sender {}", boardToken, stateDto.senderId());
     }
 
 

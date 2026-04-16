@@ -30,14 +30,16 @@ public class BoardService {
     private final BoardRoomCacheService boardRoomCacheService;
 
     public ApiResponse<NewBoardRoomResponseDTO> updateBoardState(BoardStateDTO boardStateDTO, String updaterEmail, String boardToken) {
-        if (boardStateDTO != null) {
+        if (boardStateDTO != null && boardStateDTO.boardStateJson() != null) {
             Set<String> activeUsers = boardRoomCacheService.getActiveUsers(boardToken);
             
+            // Ensure user is actually in the room
             if (activeUsers.contains(updaterEmail) || "anonymous".equals(updaterEmail)) {
                 
+                // Persist the actual JSON data to Redis
                 boardRoomCacheService.saveBoardData(boardToken, boardStateDTO.boardStateJson());
                 
-                return new ApiResponse<NewBoardRoomResponseDTO>(
+                return new ApiResponse<>(
                     "Board State Updated", 
                     "Successfully updated board state",
                     null, 
@@ -45,11 +47,11 @@ public class BoardService {
                     null
                 );
             } else {
-                log.warn("Sync rejected: User {} is not in the active users set for board {}.", updaterEmail, boardToken);
+                log.warn("Sync rejected: User {} not in active set for board {}.", updaterEmail, boardToken);
             }
         }
 
-        return new ApiResponse<NewBoardRoomResponseDTO>(
+        return new ApiResponse<>(
             "Board State Update Failed", 
             "Failed to update board state",
             null, 
