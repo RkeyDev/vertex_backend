@@ -7,9 +7,8 @@ import com.rkey.vertex_backend.core.api.board.OwnedBoardsResponse;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserSummary;
 import com.rkey.vertex_backend.modules.board.entity.BoardEntity;
 import com.rkey.vertex_backend.modules.board.models.dto.BoardStateDTO;
-import com.rkey.vertex_backend.modules.board.models.dto.JoinBoardRoomDTO;
+import com.rkey.vertex_backend.modules.board.models.dto.JoinBoardRequestDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.NewBoardDTO;
-import com.rkey.vertex_backend.modules.board.models.dto.NewBoardRoomDTO;
 import com.rkey.vertex_backend.modules.board.repository.BoardRepository;
 
 import jakarta.transaction.Transactional;
@@ -26,16 +25,19 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class BoardService {
+    
     private final BoardRepository boardRepository;
     private final BoardRoomCacheService boardRoomCacheService;
 
+    /**
+     * Updates the board state in Redis. Verified against the active user set.
+     */
     public ApiResponse<NewBoardRoomResponseDTO> updateBoardState(BoardStateDTO boardStateDTO, String updaterEmail, String boardToken) {
         if (boardStateDTO != null && boardStateDTO.boardStateJson() != null) {
             Set<String> activeUsers = boardRoomCacheService.getActiveUsers(boardToken);
             
             // Ensure user is actually in the room
             if (activeUsers.contains(updaterEmail) || "anonymous".equals(updaterEmail)) {
-                
                 // Persist the actual JSON data to Redis
                 boardRoomCacheService.saveBoardData(boardToken, boardStateDTO.boardStateJson());
                 
@@ -60,30 +62,9 @@ public class BoardService {
         );
     }
 
-    public ApiResponse<NewBoardRoomResponseDTO> createNewBoardRoom(NewBoardRoomDTO newBoardRoomDTO, String ownerEmail){
-        BoardEntity board = boardRepository.findByOwnerEmailAndBoardName(ownerEmail,newBoardRoomDTO.boardName()).orElse(null);
-        
-        if(board != null){
-            boardRoomCacheService.addUserToActiveSet(board.getToken(), ownerEmail); // Save owner email in redis
-
-            NewBoardRoomResponseDTO responseData = new NewBoardRoomResponseDTO(board.getToken(),board.getJosnData());
-            return new ApiResponse<NewBoardRoomResponseDTO>(
-                "Board Room Created",
-                "Successfully created board room",
-                responseData,
-                "200",
-                null
-            );
-        }
-        return new ApiResponse<NewBoardRoomResponseDTO>(
-            "Board Room Creation Failed",
-            "Failed to create board room",
-            null,
-            "500",
-            null
-        );
-    }
-
+    /**
+     * Creates a new persistent board entity in PostgreSQL.
+     */
     @Transactional
     public ApiResponse<Void> createNewBoard(NewBoardDTO newBoardDTO, String ownerEmail) {
         try {
@@ -125,43 +106,89 @@ public class BoardService {
         }
     }
 
-    public ApiResponse<JoinBoardRoomResponseDTO> joinBoardRoom(JoinBoardRoomDTO joinBoardRoomDTO, String userEmail){
-        BoardEntity board = boardRepository.findByToken(joinBoardRoomDTO.boardToken()).orElse(null);
-        
-        if(board != null){
-            boardRoomCacheService.addUserToActiveSet(board.getToken(), userEmail);
-            
-            // Placeholder UserSummary for owner
-            UserSummary ownerData = new UserSummary("First", "Last", board.getOwnerEmail(), board.getOwnerEmail(), null);
-            
-            JoinBoardRoomResponseDTO responseData = new JoinBoardRoomResponseDTO(board.getBoardName(), ownerData, board.getJosnData());
-            return new ApiResponse<JoinBoardRoomResponseDTO>(
-                "Board Room Joined",
-                "Successfully joined board room",
-                responseData,
-                "200",
+    /**
+     * Handles joining an existing board. Resolves by token OR (name + email).
+     * Initializes the Redis cache if the room is not currently active.
+     */
+    public ApiResponse<JoinBoardRoomResponseDTO> joinBoardRoom(JoinBoardRequestDTO requestDTO, String userEmail) {
+        BoardEntity board = null;
+
+        // Resolve the Board Entity
+        if (requestDTO.boardToken() != null && !requestDTO.boardToken().isBlank()) {
+            board = boardRepository.findByToken(requestDTO.boardToken()).orElse(null);
+        } else if (requestDTO.boardName() != null && requestDTO.ownerEmail() != null) {
+            board = boardRepository.findByOwnerEmailAndBoardName(requestDTO.ownerEmail(), requestDTO.boardName()).orElse(null);
+        }
+
+        // Handle Not Found
+        if (board == null) {
+            log.warn("Failed to join room: Board not found for request.");
+            return new ApiResponse<>(
+                "Board Room Join Failed",
+                "The requested board does not exist or you do not have access.",
+                null,
+                "404",
                 null
             );
         }
-        return new ApiResponse<JoinBoardRoomResponseDTO>(
-            "Board Room Join Failed",
-             "Failed to join board room",
-              null,
-               "400",
-                null
-            );
+
+        String boardToken = board.getToken();
+
+        // Initialize cache if the room is dead/cold
+        if (!boardRoomCacheService.isRoomActive(boardToken)) {
+            log.info("Initializing cold cache for board room: {}", boardToken);
+            // Load the persisted state from PostgreSQL into Redis for the canvas
+            if (board.getJosnData() != null) {
+                boardRoomCacheService.saveBoardData(boardToken, board.getJosnData());
+            }
+        }
+
+        // Add the current user to the active session set
+        boardRoomCacheService.addUserToActiveSet(boardToken, userEmail);
+
+
+        UserSummary ownerData = new UserSummary("First", "Last", board.getOwnerEmail(), board.getOwnerEmail(), null);
+        JoinBoardRoomResponseDTO responseData = new JoinBoardRoomResponseDTO(
+            board.getBoardName(),
+            boardToken, 
+            ownerData, 
+            board.getJosnData()
+        );
+
+        return new ApiResponse<>(
+            "Board Room Joined",
+            "Successfully joined board room",
+            responseData,
+            "200",
+            null
+        );
     }
 
+    /**
+     * Retrieves all boards owned by a specific user.
+     */
     public ApiResponse<OwnedBoardsResponse> getOwnedBoards(String userEmail){
         List<BoardEntity> boards = boardRepository.findAllByOwnerEmail(userEmail);
 
         if(boards != null){
             OwnedBoardsResponse ownedBoardsResponse = new OwnedBoardsResponse(boards);
             log.info(OwnedBoardsResponse.SUCCESS_RESPONSE_NAME);
-            return new ApiResponse<OwnedBoardsResponse>(OwnedBoardsResponse.SUCCESS_RESPONSE_NAME, OwnedBoardsResponse.SUCCESS_RESPONSE_DESCRIPTION, ownedBoardsResponse, "200", null);
+            return new ApiResponse<>(
+                OwnedBoardsResponse.SUCCESS_RESPONSE_NAME, 
+                OwnedBoardsResponse.SUCCESS_RESPONSE_DESCRIPTION, 
+                ownedBoardsResponse, 
+                "200", 
+                null
+            );
         }
 
         log.warn(OwnedBoardsResponse.FAILED_RESPONSE_DESCRIPTION);
-        return new ApiResponse<OwnedBoardsResponse>(OwnedBoardsResponse.FAILED_RESPONSE_NAME, OwnedBoardsResponse.FAILED_RESPONSE_DESCRIPTION, null, "400", null);
-       }
+        return new ApiResponse<>(
+            OwnedBoardsResponse.FAILED_RESPONSE_NAME, 
+            OwnedBoardsResponse.FAILED_RESPONSE_DESCRIPTION, 
+            null, 
+            "400", 
+            null
+        );
+    }
 }

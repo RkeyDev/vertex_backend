@@ -1,11 +1,7 @@
 package com.rkey.vertex_backend.modules.board.service;
 
 import java.util.Set;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rkey.vertex_backend.modules.board.models.dto.BoardStateDTO;
-
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.UnifiedJedis;
 
@@ -36,6 +32,21 @@ public class BoardRoomCacheService {
     }
 
     /**
+     * Checks if a board room exists in the cache.
+     * * @param boardId Unique identifier of the board.
+     * @return true if the board hash key exists and has not expired.
+     */
+    public boolean isRoomActive(String boardId) {
+        String key = BOARD_PREFIX + boardId;
+        try {
+            return jedis.exists(key);
+        } catch (Exception e) {
+            log.error("Error checking activity status for board {}: {}", boardId, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Stores the raw JSON data string representing board components.
      * The frontend is responsible for the serialization/deserialization logic.
      * * @param boardId Unique identifier of the board session.
@@ -61,13 +72,18 @@ public class BoardRoomCacheService {
      */
     public String getBoardData(String boardId) {
         String key = BOARD_PREFIX + boardId;
-        return jedis.hget(key, FIELD_DATA);
+        try {
+            return jedis.hget(key, FIELD_DATA);
+        } catch (Exception e) {
+            log.error("Error retrieving board data for {}: {}", boardId, e.getMessage());
+            return null;
+        }
     }
 
     /**
      * Updates the general board state (e.g., metadata or high-level status).
      * * @param boardId The unique identifier of the board.
-     * @param boardState The DTO containing the state string.
+     * @param boardStateJson The JSON string representing the state.
      * @return true if the operation succeeded.
      */
     public boolean updateBoardState(String boardId, String boardStateJson) {
@@ -107,7 +123,12 @@ public class BoardRoomCacheService {
      */
     public Set<String> getActiveUsers(String boardId) {
         String key = BOARD_PREFIX + boardId + USER_SET_SUFFIX;
-        return jedis.smembers(key);
+        try {
+            return jedis.smembers(key);
+        } catch (Exception e) {
+            log.error("Error fetching active users for board {}: {}", boardId, e.getMessage());
+            return Set.of();
+        }
     }
 
     /**
@@ -115,7 +136,11 @@ public class BoardRoomCacheService {
      */
     public void removeUserFromActiveSet(String boardId, String userEmail) {
         String key = BOARD_PREFIX + boardId + USER_SET_SUFFIX;
-        jedis.srem(key, userEmail);
+        try {
+            jedis.srem(key, userEmail);
+        } catch (Exception e) {
+            log.error("Error removing user {} from active set for board {}: {}", userEmail, boardId, e.getMessage());
+        }
     }
 
     /**

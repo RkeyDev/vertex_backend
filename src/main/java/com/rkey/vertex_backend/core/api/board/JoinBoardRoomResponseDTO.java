@@ -4,6 +4,7 @@ import com.rkey.vertex_backend.modules.auth.model.dto.UserSummary;
 
 public record JoinBoardRoomResponseDTO(
     String boardName,
+    String boardToken,
     UserSummary boardOwnerData,
     String boardData
 ) {}
