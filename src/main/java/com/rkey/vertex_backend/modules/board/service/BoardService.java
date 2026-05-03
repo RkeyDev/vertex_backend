@@ -164,6 +164,40 @@ public class BoardService {
         );
     }
 
+
+    public BoardStateDTO getLatestBoardState(String boardToken) {
+        log.debug("Sync Request: Fetching latest state for token {}", boardToken);
+
+        // Check Redis first
+        String cachedData = boardRoomCacheService.getBoardData(boardToken);
+        if (cachedData != null && !cachedData.isBlank()) {
+            return new BoardStateDTO(cachedData, "SERVER");
+        }
+
+        // Fallback to DB (If cache expired or room just initialized)
+        return boardRepository.findByToken(boardToken)
+                .map(board -> {
+                    String dbData = board.getJosnData();
+                    // If it's in DB but not Redis, sync back to Redis for performance
+                    if (dbData != null) {
+                        boardRoomCacheService.saveBoardData(boardToken, dbData);
+                    }
+                    return new BoardStateDTO(dbData != null ? dbData : "{}", "SERVER");
+                })
+                .orElseGet(() -> {
+                    log.error("Sync Request Failed: Board {} not found in database", boardToken);
+                    return new BoardStateDTO("{}", "SERVER");
+                });
+    }
+
+    /**
+     * Ensures the user is in the active users set, typically used when refreshing a page
+     * and reconnecting via STOMP without going through the join-room REST endpoint.
+     */
+    public void ensureUserInActiveSet(String boardToken, String userEmail) {
+        boardRoomCacheService.addUserToActiveSet(boardToken, userEmail);
+    }
+
     /**
      * Retrieves all boards owned by a specific user.
      */

@@ -43,13 +43,36 @@ public class BoardController {
             Principal principal
     ) {
         String userEmail = (principal != null) ? principal.getName() : "anonymous";
-        
-        boardService.updateBoardState(stateDto, userEmail, boardToken);
 
-        String topicDestination = "/topic/board/" + boardToken;
-        messagingTemplate.convertAndSend(topicDestination, stateDto);
-        
-        log.debug("Broadcasted update for board {} from sender {}", boardToken, stateDto.senderId());
+        // Better check: Use the 'type' field you're already sending from the frontend
+        // or check if the incoming JSON actually contains data.
+        boolean isInitialSync = stateDto.boardStateJson().contains("INITIAL_SYNC");
+
+        if (isInitialSync) {
+            log.info("User {} requested initial sync for board {}", userEmail, boardToken);
+            
+            // Ensure user is in the active set so they can edit the board after a refresh
+            boardService.ensureUserInActiveSet(boardToken, userEmail);
+
+            // Fetch the truth from Redis/DB
+            BoardStateDTO currentState = boardService.getLatestBoardState(boardToken);
+            
+            // Only broadcast if the stored state actually has content.
+            if (currentState != null && currentState.boardStateJson() != null) {
+                messagingTemplate.convertAndSend("/topic/board/" + boardToken, currentState);
+            }
+            return;
+        }
+
+        // Data Integrity Guard: Don't let an empty state overwrite a populated board
+        if (stateDto.boardStateJson().equals("{\"components\":[],\"arrows\":[]}")) {
+            log.debug("Ignoring empty sync from {}", userEmail);
+            return;
+        }
+
+        // Standard path: Save and Broadcast
+        boardService.updateBoardState(stateDto, userEmail, boardToken);
+        messagingTemplate.convertAndSend("/topic/board/" + boardToken, stateDto);
     }
 
     @PostMapping("/join-room")
