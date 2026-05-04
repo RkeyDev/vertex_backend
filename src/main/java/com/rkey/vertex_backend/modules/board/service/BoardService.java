@@ -225,4 +225,21 @@ public class BoardService {
             null
         );
     }
+
+    public boolean saveBoardInDb(String boardToken, BoardStateDTO boardStateDTO){
+        if(boardStateDTO != null && boardToken != null && !boardStateDTO.boardStateJson().isEmpty()){
+            try{
+                BoardEntity updatedBoard = boardRepository.findByToken(boardToken).orElse(null); // Fetch board by token
+                updatedBoard.setJosnData(boardStateDTO.boardStateJson()); // Update board data
+                boardRepository.save(updatedBoard); // Save updated board in DB
+                log.info("Successfully updated board data");
+                return true;
+            }
+            catch(Exception e){
+                log.warn("An error occured while updating board data: " + e.getMessage());
+                return false;
+            }
+        }
+        return false;
+    }
 }

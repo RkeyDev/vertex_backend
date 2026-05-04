@@ -26,7 +26,7 @@ public class BoardEntity {
     @Column(name = "owner_email", nullable = false)
     private String ownerEmail;
 
-    @Column(name = "json_data", nullable = true)
+    @Column(name = "json_data", nullable = true, columnDefinition = "TEXT")
     private String josnData;
 
     @Column(name = "board_token", nullable = true)

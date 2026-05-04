@@ -73,6 +73,7 @@ public class BoardController {
 
         // Standard path: Save and Broadcast
         boardService.updateBoardState(stateDto, userEmail, boardToken);
+        boardService.saveBoardInDb(boardToken, stateDto);
         messagingTemplate.convertAndSend("/topic/board/" + boardToken, stateDto);
     }
 
