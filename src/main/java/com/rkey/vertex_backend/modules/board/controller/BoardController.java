@@ -59,7 +59,8 @@ public class BoardController {
             
             // Only broadcast if the stored state actually has content.
             if (currentState != null && currentState.boardStateJson() != null) {
-                messagingTemplate.convertAndSend("/topic/board/" + boardToken, currentState);
+                BoardStateDTO responseDto = new BoardStateDTO(currentState.boardStateJson(), "SERVER_INITIAL_SYNC_" + stateDto.senderId());
+                messagingTemplate.convertAndSend("/topic/board/" + boardToken, responseDto);
             }
             return;
         }
