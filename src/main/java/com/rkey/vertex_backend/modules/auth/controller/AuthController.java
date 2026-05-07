@@ -12,6 +12,7 @@ import com.rkey.vertex_backend.core.api.ApiResponse;
 import com.rkey.vertex_backend.core.api.auth.LoginResponseDTO;
 import com.rkey.vertex_backend.core.api.auth.RegistrationResponseDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.AccountVerificationDTO;
+import com.rkey.vertex_backend.modules.auth.model.dto.ResendVerificationLinkDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserLoginDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserLogoutDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserRegistrationDTO;
@@ -68,4 +69,15 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> handleLogout(@Valid @RequestBody UserLogoutDTO dto) {
         throw new UnsupportedOperationException("Method is not implemented yet");
     }        
+
+
+    @PostMapping("/send-verification-link")
+    public ResponseEntity<ApiResponse<Void>> handleSendVerificationLink(@Valid @RequestBody ResendVerificationLinkDTO dto){
+        ApiResponse<Void> response = authService.sendVerificationLink(dto.emailAddress(),null);
+        
+        if ("404".equals(response.responseCode())) {
+            return ResponseEntity.badRequest().body(response);
+        }
+        return ResponseEntity.status(200).body(response);
+    }
 }

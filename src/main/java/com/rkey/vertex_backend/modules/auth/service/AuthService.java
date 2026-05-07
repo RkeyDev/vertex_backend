@@ -15,10 +15,12 @@ import com.rkey.vertex_backend.modules.auth.entity.VerificationTokenEntity;
 import com.rkey.vertex_backend.modules.auth.model.enums.AccountRole;
 import com.rkey.vertex_backend.modules.auth.repository.VerificationTokenRepository;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -32,6 +34,7 @@ import java.util.UUID;
 
 /**
  * Core business logic for authentication and user management.
+ * Adheres to industry best practices for transaction management and security.
  */
 @Slf4j
 @Service
@@ -49,6 +52,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
 
+    @Transactional
     public ApiResponse<RegistrationResponseDTO> registerUser(UserRegistrationDTO dto) {
         if (userRepository.existsByEmail(dto.email())) {
             return new ApiResponse<>("Registration Failed", "Email already in use", null, "400", null);
@@ -64,28 +68,52 @@ public class AuthService {
                 .username(dto.username())
                 .encodedPassword(passwordEncoder.encode(dto.password()))
                 .role(AccountRole.USER)
-                .isLocked(true)
+                .isLocked(true) // Account is locked until email verification
                 .build();
 
         userRepository.save(user);
 
-        String token = UUID.randomUUID().toString();
-        VerificationTokenEntity verificationToken = VerificationTokenEntity.builder()
-                .token(token)
-                .user(user)
-                .expiryDate(OffsetDateTime.now().plusHours(24))
-                .build();
-                
-        verificationTokenRepository.save(verificationToken);
-        emailService.sendVerificationEmail(user.getEmail(), token);
+        // Dispatches the initial verification link
+        sendVerificationLink(user.getEmail(), user); 
 
         return new ApiResponse<>(
                 "Registration Successful",
-                "User has been successfully registered",
+                "User has been successfully registered. Please check your email to verify your account.",
                 new RegistrationResponseDTO(user.getEmail(), null),
                 "201",
                 null
         );
+    }
+
+    /**
+     * Generates and sends a new verification link. 
+     * Explicitly clears existing tokens for the user to prevent unique constraint violations.
+     */
+    @Transactional
+    public ApiResponse<Void> sendVerificationLink(String emailAddress, UserEntity user) {
+        if (user == null) {
+            user = userRepository.findByEmail(emailAddress)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + emailAddress));
+        }
+
+        // Clean up any existing tokens for this user before generating a new one.
+        // This is safer than an update-or-create logic for sensitive security tokens.
+        verificationTokenRepository.deleteByUser(user);
+        verificationTokenRepository.flush(); 
+
+        VerificationTokenEntity tokenEntity = VerificationTokenEntity.builder()
+                .token(UUID.randomUUID().toString())
+                .user(user)
+                .expiryDate(OffsetDateTime.now().plusHours(24))
+                .build();
+
+        verificationTokenRepository.save(tokenEntity);
+        
+        // Dispatch email via asynchronous/external service logic
+        emailService.sendVerificationEmail(user.getEmail(), tokenEntity.getToken());
+
+        log.info("New verification link dispatched for user: {}", user.getEmail());
+        return new ApiResponse<>("Success", "Verification link has been sent.", null, "200", null);
     }
 
     @Transactional
@@ -96,16 +124,14 @@ public class AuthService {
                     new UsernamePasswordAuthenticationToken(dto.email(), dto.password())
             );
 
-            // Load User
             UserEntity user = userRepository.findByEmail(dto.email())
-                    .orElseThrow(() -> new IllegalStateException("User not found post-authentication"));
+                    .orElseThrow(() -> new IllegalStateException("User context lost post-authentication"));
 
-            // Verify Account status
+            // Check if the user has completed email verification
             if (user.isLocked()) {
-                return new ApiResponse<>("Login Failed", "Account is not verified", null, "403", null);
+                return new ApiResponse<>("Login Failed", "Account is not verified. Please check your email.", null, "403", null);
             }
 
-            // Create User Summary for the Frontend
             UserSummary userSummary = new UserSummary(
                     user.getFirstName(),
                     user.getLastName(),
@@ -114,14 +140,12 @@ public class AuthService {
                     user.getAvatarUrl()
             );
 
-            // Generate Tokens using the Entity (UserDetails)
             String accessToken = jwtService.generateToken(user);
             String refreshToken = UUID.randomUUID().toString();
 
-            // Manage Refresh Token session
             long daysValid = dto.rememberMe() ? REMEMBER_ME_VALID_DAYS : VALID_DAYS;
             
-
+            // Clear existing refresh tokens to support single-session-per-user or security cleanup
             refreshTokenRepository.deleteAllByUser(user);
             refreshTokenRepository.flush(); 
 
@@ -133,7 +157,7 @@ public class AuthService {
             
             refreshTokenRepository.save(refreshTokenEntity);
 
-            log.info("User {} successfully logged in.", user.getEmail());
+            log.info("Authentication successful for user: {}", user.getEmail());
 
             return new ApiResponse<>(
                     "Login Successful",
@@ -144,10 +168,10 @@ public class AuthService {
             );
 
         } catch (AuthenticationException e) {
-            log.warn("Login failed for email: {}", dto.email());
+            log.warn("Authentication failed for email: {}", dto.email());
             return new ApiResponse<>("Login Failed", "Invalid email or password", null, "401", null);
         } catch (Exception e) {
-            log.error("Critical login error: ", e);
+            log.error("Unhandled exception during login flow: ", e);
             return new ApiResponse<>("Error", "Internal server error during login", null, "500", null);
         }
     }
@@ -158,7 +182,7 @@ public class AuthService {
                 .orElse(null);
 
         if (tokenEntity == null || !tokenEntity.getUser().getEmail().equals(dto.email())) {
-            return new ApiResponse<>("Verification Failed", "Invalid token or email", null, "400", null);
+            return new ApiResponse<>("Verification Failed", "Invalid token or email association", null, "400", null);
         }
 
         if (tokenEntity.isExpired()) {
@@ -169,8 +193,11 @@ public class AuthService {
         user.setLocked(false);
         userRepository.save(user);
 
+        // One-time use: consume the token immediately upon success
         verificationTokenRepository.delete(tokenEntity);
-        return new ApiResponse<>("Verification Successful", "Account has been verified successfully", null, "200", null);
+        
+        log.info("Account verified successfully for user: {}", user.getEmail());
+        return new ApiResponse<>("Verification Successful", "Your account is now active.", null, "200", null);
     }
 
     @Transactional
@@ -209,8 +236,10 @@ public class AuthService {
                     .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
             refreshTokenRepository.deleteAllByUser(user);
+            log.info("User {} logged out, session invalidated.", user.getEmail());
             return true;
         } catch (Exception e) {
+            log.error("Logout failure: ", e);
             return false;
         }
     }
