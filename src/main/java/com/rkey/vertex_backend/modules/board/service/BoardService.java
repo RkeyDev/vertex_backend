@@ -138,8 +138,8 @@ public class BoardService {
         if (!boardRoomCacheService.isRoomActive(boardToken)) {
             log.info("Initializing cold cache for board room: {}", boardToken);
             // Load the persisted state from PostgreSQL into Redis for the canvas
-            if (board.getJosnData() != null) {
-                boardRoomCacheService.saveBoardData(boardToken, board.getJosnData());
+            if (board.getJsonData() != null) {
+                boardRoomCacheService.saveBoardData(boardToken, board.getJsonData());
             }
         }
 
@@ -152,7 +152,7 @@ public class BoardService {
             board.getBoardName(),
             boardToken, 
             ownerData, 
-            board.getJosnData()
+            board.getJsonData()
         );
 
         return new ApiResponse<>(
@@ -177,7 +177,7 @@ public class BoardService {
         // Fallback to DB (If cache expired or room just initialized)
         return boardRepository.findByToken(boardToken)
                 .map(board -> {
-                    String dbData = board.getJosnData();
+                    String dbData = board.getJsonData();
                     // If it's in DB but not Redis, sync back to Redis for performance
                     if (dbData != null) {
                         boardRoomCacheService.saveBoardData(boardToken, dbData);
@@ -230,7 +230,7 @@ public class BoardService {
         if(boardStateDTO != null && boardToken != null && !boardStateDTO.boardStateJson().isEmpty()){
             try{
                 BoardEntity updatedBoard = boardRepository.findByToken(boardToken).orElse(null); // Fetch board by token
-                updatedBoard.setJosnData(boardStateDTO.boardStateJson()); // Update board data
+                updatedBoard.setJsonData(boardStateDTO.boardStateJson()); // Update board data
                 boardRepository.save(updatedBoard); // Save updated board in DB
                 log.info("Successfully updated board data");
                 return true;

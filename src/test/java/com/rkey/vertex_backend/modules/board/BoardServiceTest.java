@@ -207,7 +207,7 @@ public class BoardServiceTest {
             when(board.getToken()).thenReturn(TEST_BOARD_TOKEN);
             when(board.getBoardName()).thenReturn(TEST_BOARD_NAME);
             when(board.getOwnerEmail()).thenReturn(TEST_USER_EMAIL);
-            when(board.getJosnData()).thenReturn(TEST_BOARD_JSON);
+            when(board.getJsonData()).thenReturn(TEST_BOARD_JSON);
             return board;
         }
 
@@ -246,7 +246,7 @@ public class BoardServiceTest {
             BoardEntity board = mock(BoardEntity.class);
             when(board.getToken()).thenReturn(TEST_BOARD_TOKEN);
             when(board.getOwnerEmail()).thenReturn(TEST_USER_EMAIL);
-            when(board.getJosnData()).thenReturn(null);
+            when(board.getJsonData()).thenReturn(null);
             when(boardRepository.findByToken(TEST_BOARD_TOKEN)).thenReturn(Optional.of(board));
             when(boardRoomCacheService.isRoomActive(TEST_BOARD_TOKEN)).thenReturn(false);
 
@@ -309,7 +309,7 @@ public class BoardServiceTest {
         @Test
         void whenCacheIsEmpty_shouldFallBackToDb_andRepopulateCache() {
             BoardEntity board = mock(BoardEntity.class);
-            when(board.getJosnData()).thenReturn(TEST_BOARD_JSON);
+            when(board.getJsonData()).thenReturn(TEST_BOARD_JSON);
             when(boardRoomCacheService.getBoardData(TEST_BOARD_TOKEN)).thenReturn(null);
             when(boardRepository.findByToken(TEST_BOARD_TOKEN)).thenReturn(Optional.of(board));
 
@@ -322,7 +322,7 @@ public class BoardServiceTest {
         @Test
         void whenCacheIsEmpty_andDbBoardHasNullData_shouldReturnEmptyJson() {
             BoardEntity board = mock(BoardEntity.class);
-            when(board.getJosnData()).thenReturn(null);
+            when(board.getJsonData()).thenReturn(null);
             when(boardRoomCacheService.getBoardData(TEST_BOARD_TOKEN)).thenReturn(null);
             when(boardRepository.findByToken(TEST_BOARD_TOKEN)).thenReturn(Optional.of(board));
 
@@ -335,7 +335,7 @@ public class BoardServiceTest {
         @Test
         void whenCacheIsBlank_shouldFallBackToDb() {
             BoardEntity board = mock(BoardEntity.class);
-            when(board.getJosnData()).thenReturn(TEST_BOARD_JSON);
+            when(board.getJsonData()).thenReturn(TEST_BOARD_JSON);
             when(boardRoomCacheService.getBoardData(TEST_BOARD_TOKEN)).thenReturn("   ");
             when(boardRepository.findByToken(TEST_BOARD_TOKEN)).thenReturn(Optional.of(board));
 
@@ -367,7 +367,7 @@ public class BoardServiceTest {
             boolean result = boardService.saveBoardInDb(TEST_BOARD_TOKEN, dto);
 
             assertTrue(result);
-            verify(board).setJosnData(TEST_BOARD_JSON);
+            verify(board).setJsonData(TEST_BOARD_JSON);
             verify(boardRepository).save(board);
         }
 
