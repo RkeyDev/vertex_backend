@@ -11,8 +11,11 @@ import org.springframework.web.bind.annotation.RestController;
 import com.rkey.vertex_backend.core.api.ApiResponse;
 import com.rkey.vertex_backend.core.api.auth.LoginResponseDTO;
 import com.rkey.vertex_backend.core.api.auth.RegistrationResponseDTO;
+import com.rkey.vertex_backend.core.api.auth.UpdateProfileResponse;
+import com.rkey.vertex_backend.modules.auth.entity.UserEntity;
 import com.rkey.vertex_backend.modules.auth.model.dto.AccountVerificationDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.ResendVerificationLinkDTO;
+import com.rkey.vertex_backend.modules.auth.model.dto.UpdateProfileDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserLoginDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserLogoutDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserRegistrationDTO;
@@ -43,6 +46,18 @@ public class AuthController {
             return ResponseEntity.badRequest().body(response);
         }
         return ResponseEntity.status(201).body(response);
+    }
+
+    @PostMapping("/profile/update")
+    public ResponseEntity<ApiResponse<UpdateProfileResponse>> handleUpdateProfile(
+            @Valid @RequestBody UpdateProfileDTO dto,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal UserEntity user) {
+        
+        ApiResponse<UpdateProfileResponse> response = authService.updateProfile(dto, user);
+
+        return "200".equals(response.responseCode()) 
+                ? ResponseEntity.ok(response) 
+                : ResponseEntity.status(Integer.parseInt(response.responseCode())).body(response);
     }
 
     @PostMapping("/email-verification") 

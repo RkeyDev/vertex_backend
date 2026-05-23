@@ -3,7 +3,9 @@ package com.rkey.vertex_backend.modules.auth.service;
 import com.rkey.vertex_backend.core.api.ApiResponse;
 import com.rkey.vertex_backend.core.api.auth.LoginResponseDTO;
 import com.rkey.vertex_backend.core.api.auth.RegistrationResponseDTO;
+import com.rkey.vertex_backend.core.api.auth.UpdateProfileResponse;
 import com.rkey.vertex_backend.modules.auth.model.dto.AccountVerificationDTO;
+import com.rkey.vertex_backend.modules.auth.model.dto.UpdateProfileDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserLoginDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserRegistrationDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserSummary;
@@ -51,6 +53,53 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+
+    @Transactional
+    public ApiResponse<UpdateProfileResponse> updateProfile(UpdateProfileDTO dto, UserEntity user) {
+        if (user == null) {
+            log.warn("Attempted to update profile with null user context");
+            return new ApiResponse<>(
+                "Update profile failed",
+                "User context is missing or unauthenticated",
+                new UpdateProfileResponse(new UserSummary("", "", "", "", "")),
+                "401",
+                null
+            );
+        }
+
+        // Apply partial updates only if values are provided and not blank
+        if (dto.firstName() != null && !dto.firstName().isBlank()) {
+            user.setFirstName(dto.firstName().trim());
+        }
+
+        if (dto.lastName() != null && !dto.lastName().isBlank()) {
+            user.setLastName(dto.lastName().trim());
+        }
+
+        if (dto.avatarUrl() != null && !dto.avatarUrl().isBlank()) {
+            user.setAvatarUrl(dto.avatarUrl().trim());
+        }
+
+        UserEntity updatedUser = userRepository.save(user);
+        log.info("Profile successfully updated for user: {}", updatedUser.getEmail());
+
+        UserSummary userSummary = new UserSummary(
+                updatedUser.getFirstName(),
+                updatedUser.getLastName(),
+                updatedUser.getEmail(),
+                updatedUser.getUsername(),
+                updatedUser.getAvatarUrl()
+        );
+
+        return new ApiResponse<>(
+                "Update Profile Successful",
+                "Your profile information has been updated successfully",
+                new UpdateProfileResponse(userSummary),
+                "200",
+                null
+        );
+    }
+
 
     @Transactional
     public ApiResponse<RegistrationResponseDTO> registerUser(UserRegistrationDTO dto) {
