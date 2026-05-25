@@ -8,6 +8,7 @@ import com.rkey.vertex_backend.modules.auth.model.dto.AccountVerificationDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UpdateProfileDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserLoginDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserRegistrationDTO;
+import com.rkey.vertex_backend.modules.auth.model.dto.UserLogoutDTO;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserSummary;
 import com.rkey.vertex_backend.modules.auth.repository.RefreshTokenRepository;
 import com.rkey.vertex_backend.modules.auth.repository.UserRepository;
@@ -291,5 +292,15 @@ public class AuthService {
             log.error("Logout failure: ", e);
             return false;
         }
+    }
+
+    @Transactional
+    public ApiResponse<Void> logoutUser(UserLogoutDTO dto) {
+        RefreshTokenEntity tokenEntity = refreshTokenRepository.findByToken(dto.refreshToken()).orElse(null);
+        if (tokenEntity != null) {
+            refreshTokenRepository.delete(tokenEntity);
+            log.info("User {} logged out, refresh token deleted.", tokenEntity.getUser().getEmail());
+        }
+        return new ApiResponse<>("Logout Successful", "User logged out successfully", null, "200", null);
     }
 }

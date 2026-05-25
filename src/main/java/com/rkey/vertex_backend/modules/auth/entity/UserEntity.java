@@ -56,7 +56,7 @@ public class UserEntity implements UserDetails {
     @Column(name = "password", nullable = false)
     private String encodedPassword;
 
-    @Column(name = "avatar_url")
+    @Column(name = "avatar_url",  columnDefinition = "TEXT")
     private String avatarUrl;
 
     @Enumerated(EnumType.STRING)

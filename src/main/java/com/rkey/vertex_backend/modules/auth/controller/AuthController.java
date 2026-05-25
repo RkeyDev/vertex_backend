@@ -82,7 +82,8 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> handleLogout(@Valid @RequestBody UserLogoutDTO dto) {
-        throw new UnsupportedOperationException("Method is not implemented yet");
+        ApiResponse<Void> response = authService.logoutUser(dto);
+        return ResponseEntity.ok(response);
     }        
 
 
