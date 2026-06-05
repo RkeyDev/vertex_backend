@@ -4,9 +4,13 @@ import com.rkey.vertex_backend.core.api.ApiResponse;
 import com.rkey.vertex_backend.core.api.board.JoinBoardRoomResponseDTO;
 import com.rkey.vertex_backend.core.api.board.NewBoardRoomResponseDTO;
 import com.rkey.vertex_backend.core.api.board.OwnedBoardsResponse;
+import com.rkey.vertex_backend.modules.auth.entity.UserEntity;
+import com.rkey.vertex_backend.modules.auth.mapper.UserMapper;
 import com.rkey.vertex_backend.modules.auth.model.dto.UserSummary;
+import com.rkey.vertex_backend.modules.auth.repository.UserRepository;
 import com.rkey.vertex_backend.modules.board.entity.BoardEntity;
 import com.rkey.vertex_backend.modules.board.models.dto.BoardStateDTO;
+import com.rkey.vertex_backend.modules.board.models.dto.CursorProfileDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.JoinBoardRequestDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.NewBoardDTO;
 import com.rkey.vertex_backend.modules.board.repository.BoardRepository;
@@ -28,38 +32,56 @@ public class BoardService {
     
     private final BoardRepository boardRepository;
     private final BoardRoomCacheService boardRoomCacheService;
+    private final UserRepository userRepository;
+    private final UserMapper userMapper;
 
     /**
      * Updates the board state in Redis. Verified against the active user set.
      */
     public ApiResponse<NewBoardRoomResponseDTO> updateBoardState(BoardStateDTO boardStateDTO, String updaterEmail, String boardToken) {
-        if (boardStateDTO != null && boardStateDTO.boardStateJson() != null) {
-            Set<String> activeUsers = boardRoomCacheService.getActiveUsers(boardToken);
-            
-            // Ensure user is actually in the room
-            if (activeUsers.contains(updaterEmail) || "anonymous".equals(updaterEmail)) {
-                // Persist the actual JSON data to Redis
-                boardRoomCacheService.saveBoardData(boardToken, boardStateDTO.boardStateJson());
-                
-                return new ApiResponse<>(
-                    "Board State Updated", 
-                    "Successfully updated board state",
-                    null, 
-                    "200",
-                    null
-                );
-            } else {
-                log.warn("Sync rejected: User {} not in active set for board {}.", updaterEmail, boardToken);
-            }
+        if (boardStateDTO == null || boardStateDTO.boardStateJson() == null) {
+            return boardStateUpdateFailed();
         }
 
+        if (!canUserSyncBoard(boardToken, updaterEmail)) {
+            log.warn("Sync rejected: User {} not in active set for board {}.", updaterEmail, boardToken);
+            return boardStateUpdateFailed();
+        }
+
+        boardRoomCacheService.saveBoardData(boardToken, boardStateDTO.boardStateJson());
         return new ApiResponse<>(
-            "Board State Update Failed", 
+            "Board State Updated",
+            "Successfully updated board state",
+            null,
+            "200",
+            null
+        );
+    }
+
+    private static ApiResponse<NewBoardRoomResponseDTO> boardStateUpdateFailed() {
+        return new ApiResponse<>(
+            "Board State Update Failed",
             "Failed to update board state",
-            null, 
+            null,
             "500",
             null
         );
+    }
+
+    public boolean canUserSyncBoard(String boardToken, String updaterEmail) {
+        if ("anonymous".equals(updaterEmail)) {
+            return true;
+        }
+        return boardRoomCacheService.getActiveUsers(boardToken).contains(updaterEmail);
+    }
+
+    /**
+     * Hot path for live collaboration: cache in Redis without blocking on PostgreSQL.
+     */
+    public void cacheBoardStateForLiveSync(String boardToken, BoardStateDTO boardStateDTO) {
+        if (boardStateDTO != null && boardStateDTO.boardStateJson() != null) {
+            boardRoomCacheService.saveBoardData(boardToken, boardStateDTO.boardStateJson());
+        }
     }
 
     /**
@@ -146,13 +168,31 @@ public class BoardService {
         // Add the current user to the active session set
         boardRoomCacheService.addUserToActiveSet(boardToken, userEmail);
 
+        UserEntity joiningUser = userRepository.findByEmail(userEmail).orElse(null);
+        String displayName = resolveDisplayName(joiningUser, userEmail);
+        String avatarUrl = joiningUser != null && joiningUser.getAvatarUrl() != null
+                ? joiningUser.getAvatarUrl()
+                : "";
 
-        UserSummary ownerData = new UserSummary("First", "Last", board.getOwnerEmail(), board.getOwnerEmail(), null);
+        CursorProfileDTO currentProfile = BoardProfileRegistry.registerProfile(
+                boardToken,
+                null,
+                displayName,
+                avatarUrl
+        );
+
+        final String ownerEmail = board.getOwnerEmail();
+        UserSummary ownerData = userRepository.findByEmail(ownerEmail)
+                .map(userMapper::getUserSummary)
+                .orElseGet(() -> new UserSummary("First", "Last", ownerEmail, ownerEmail, null));
+
         JoinBoardRoomResponseDTO responseData = new JoinBoardRoomResponseDTO(
             board.getBoardName(),
-            boardToken, 
-            ownerData, 
-            board.getJsonData()
+            boardToken,
+            ownerData,
+            board.getJsonData(),
+            BoardProfileRegistry.getProfilesForBoard(boardToken),
+            currentProfile.id()
         );
 
         return new ApiResponse<>(
@@ -224,6 +264,22 @@ public class BoardService {
             "400", 
             null
         );
+    }
+
+    private String resolveDisplayName(UserEntity user, String fallbackEmail) {
+        if (user == null) {
+            return fallbackEmail;
+        }
+
+        String firstName = user.getFirstName() != null ? user.getFirstName().trim() : "";
+        String lastName = user.getLastName() != null ? user.getLastName().trim() : "";
+        String fullName = (firstName + " " + lastName).trim();
+
+        if (!fullName.isEmpty()) {
+            return fullName;
+        }
+
+        return fallbackEmail;
     }
 
     public boolean saveBoardInDb(String boardToken, BoardStateDTO boardStateDTO){

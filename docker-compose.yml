@@ -2,12 +2,16 @@ services:
   backend:
     build: .
     container_name: vertex-backend
+    restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${VERTEX_BACKEND_PORT:-9080}:8080"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME}
       - SPRING_DATASOURCE_USERNAME=${DB_USER}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
 
       #JWT Configuration
       - APPLICATION_SECURITY_JWT_SECRET_KEY=${JWT_SECRET_KEY}

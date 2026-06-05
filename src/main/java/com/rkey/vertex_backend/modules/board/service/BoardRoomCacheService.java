@@ -1,9 +1,11 @@
 package com.rkey.vertex_backend.modules.board.service;
 
+import java.time.Duration;
+import java.util.Objects;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Service responsible for managing real-time board state and active user sessions in Redis.
@@ -14,7 +16,7 @@ import redis.clients.jedis.UnifiedJedis;
 @Slf4j
 public class BoardRoomCacheService {
 
-    private final UnifiedJedis jedis;
+    private final StringRedisTemplate redisTemplate;
     
     // Prefix for the Hash containing board metadata and JSON data
     private static final String BOARD_PREFIX = "board:";
@@ -27,8 +29,8 @@ public class BoardRoomCacheService {
 
     private static final int DEFAULT_TTL = 86400; // 24 Hours in seconds
 
-    public BoardRoomCacheService(UnifiedJedis jedis) {
-        this.jedis = jedis;
+    public BoardRoomCacheService(StringRedisTemplate redisTemplate) {
+        this.redisTemplate = redisTemplate;
     }
 
     /**
@@ -39,7 +41,7 @@ public class BoardRoomCacheService {
     public boolean isRoomActive(String boardId) {
         String key = BOARD_PREFIX + boardId;
         try {
-            return jedis.exists(key);
+            return Boolean.TRUE.equals(redisTemplate.hasKey(key));
         } catch (Exception e) {
             log.error("Error checking activity status for board {}: {}", boardId, e.getMessage());
             return false;
@@ -55,10 +57,9 @@ public class BoardRoomCacheService {
     public void saveBoardData(String boardId, String jsonData) {
         String key = BOARD_PREFIX + boardId;
         try {
-            // Store the raw JSON string in the 'data' field of the board's hash
-            jedis.hset(key, FIELD_DATA, jsonData);
-            jedis.expire(key, DEFAULT_TTL);
-            
+            redisTemplate.opsForHash().put(key, FIELD_DATA, Objects.requireNonNull(jsonData, "jsonData must not be null"));
+            Duration ttl = Objects.requireNonNull(Duration.ofSeconds(DEFAULT_TTL));
+            redisTemplate.expire(key, ttl);
             log.debug("Successfully updated component data for board: {}", boardId);
         } catch (Exception e) {
             log.error("Failed to update board data for ID {}: {}", boardId, e.getMessage());
@@ -73,7 +74,8 @@ public class BoardRoomCacheService {
     public String getBoardData(String boardId) {
         String key = BOARD_PREFIX + boardId;
         try {
-            return jedis.hget(key, FIELD_DATA);
+            Object value = redisTemplate.opsForHash().get(key, FIELD_DATA);
+            return value != null ? value.toString() : null;
         } catch (Exception e) {
             log.error("Error retrieving board data for {}: {}", boardId, e.getMessage());
             return null;
@@ -93,8 +95,9 @@ public class BoardRoomCacheService {
 
         String key = BOARD_PREFIX + boardId;
         try {
-            jedis.hset(key, FIELD_STATE, boardStateJson);
-            jedis.expire(key, DEFAULT_TTL);
+            redisTemplate.opsForHash().put(key, FIELD_STATE, Objects.requireNonNull(boardStateJson, "boardStateJson must not be null"));
+            Duration ttl = Objects.requireNonNull(Duration.ofSeconds(DEFAULT_TTL));
+            redisTemplate.expire(key, ttl);
             return true;
         } catch (Exception e) {
             log.error("Error updating hash state for board {}: {}", boardId, e.getMessage());
@@ -109,9 +112,10 @@ public class BoardRoomCacheService {
     public boolean addUserToActiveSet(String boardId, String userEmail) {
         String key = BOARD_PREFIX + boardId + USER_SET_SUFFIX;
         try {
-            long result = jedis.sadd(key, userEmail);
-            jedis.expire(key, DEFAULT_TTL);
-            return result > 0;
+            Long result = redisTemplate.opsForSet().add(key, Objects.requireNonNull(userEmail, "userEmail must not be null"));
+            Duration ttl = Objects.requireNonNull(Duration.ofSeconds(DEFAULT_TTL));
+            redisTemplate.expire(key, ttl);
+            return result != null && result > 0;
         } catch (Exception e) {
             log.error("Error adding user {} to board {}: {}", userEmail, boardId, e.getMessage());
             return false;
@@ -124,7 +128,8 @@ public class BoardRoomCacheService {
     public Set<String> getActiveUsers(String boardId) {
         String key = BOARD_PREFIX + boardId + USER_SET_SUFFIX;
         try {
-            return jedis.smembers(key);
+            Set<String> members = redisTemplate.opsForSet().members(key);
+            return members != null ? members : Set.of();
         } catch (Exception e) {
             log.error("Error fetching active users for board {}: {}", boardId, e.getMessage());
             return Set.of();
@@ -137,7 +142,7 @@ public class BoardRoomCacheService {
     public void removeUserFromActiveSet(String boardId, String userEmail) {
         String key = BOARD_PREFIX + boardId + USER_SET_SUFFIX;
         try {
-            jedis.srem(key, userEmail);
+            redisTemplate.opsForSet().remove(key, userEmail);
         } catch (Exception e) {
             log.error("Error removing user {} from active set for board {}: {}", userEmail, boardId, e.getMessage());
         }
@@ -150,7 +155,8 @@ public class BoardRoomCacheService {
         String stateKey = BOARD_PREFIX + boardId;
         String userKey = BOARD_PREFIX + boardId + USER_SET_SUFFIX;
         try {
-            return jedis.del(stateKey, userKey) > 0;
+            java.util.List<String> keys = java.util.List.of(stateKey, userKey);
+            return Boolean.TRUE.equals(redisTemplate.delete(Objects.requireNonNull(keys)));
         } catch (Exception e) {
             log.error("Error clearing cache for board {}: {}", boardId, e.getMessage());
             return false;

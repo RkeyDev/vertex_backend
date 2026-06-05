@@ -3,11 +3,16 @@ package com.rkey.vertex_backend.modules.board;
 import com.rkey.vertex_backend.core.api.ApiResponse;
 import com.rkey.vertex_backend.core.api.board.JoinBoardRoomResponseDTO;
 import com.rkey.vertex_backend.core.api.board.OwnedBoardsResponse;
+import com.rkey.vertex_backend.modules.auth.entity.UserEntity;
+import com.rkey.vertex_backend.modules.auth.mapper.UserMapper;
+import com.rkey.vertex_backend.modules.auth.model.dto.UserSummary;
+import com.rkey.vertex_backend.modules.auth.repository.UserRepository;
 import com.rkey.vertex_backend.modules.board.entity.BoardEntity;
 import com.rkey.vertex_backend.modules.board.models.dto.BoardStateDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.JoinBoardRequestDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.NewBoardDTO;
 import com.rkey.vertex_backend.modules.board.repository.BoardRepository;
+import com.rkey.vertex_backend.modules.board.service.BoardProfileRegistry;
 import com.rkey.vertex_backend.modules.board.service.BoardRoomCacheService;
 import com.rkey.vertex_backend.modules.board.service.BoardService;
 import com.rkey.vertex_backend.core.api.board.NewBoardRoomResponseDTO;
@@ -39,6 +44,12 @@ public class BoardServiceTest {
 
     @Mock
     private BoardRoomCacheService boardRoomCacheService;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private UserMapper userMapper;
 
     @InjectMocks
     private BoardService boardService;
@@ -115,8 +126,6 @@ public class BoardServiceTest {
         @Test
         void whenUserIsAnonymous_shouldPersistAndReturnSuccess() {
             BoardStateDTO dto = new BoardStateDTO(TEST_BOARD_JSON, "CLIENT");
-            when(boardRoomCacheService.getActiveUsers(TEST_BOARD_TOKEN))
-                    .thenReturn(Collections.emptySet());
 
             ApiResponse<NewBoardRoomResponseDTO> response =
                     boardService.updateBoardState(dto, "anonymous", TEST_BOARD_TOKEN);
@@ -202,6 +211,23 @@ public class BoardServiceTest {
     @Nested
     class JoinBoardRoom {
 
+        @org.junit.jupiter.api.BeforeEach
+        void setUpJoinBoardRoom() {
+            BoardProfileRegistry.clearAll();
+
+            UserEntity joiningUser = UserEntity.builder()
+                    .email(TEST_USER_EMAIL)
+                    .firstName("John")
+                    .lastName("Doe")
+                    .avatarUrl("https://example.com/avatar.png")
+                    .build();
+
+            lenient().when(userRepository.findByEmail(TEST_USER_EMAIL)).thenReturn(Optional.of(joiningUser));
+            lenient().when(userMapper.getUserSummary(joiningUser)).thenReturn(
+                    new UserSummary("John", "Doe", TEST_USER_EMAIL, TEST_USER_EMAIL, "https://example.com/avatar.png")
+            );
+        }
+
         private BoardEntity buildBoard() {
             BoardEntity board = mock(BoardEntity.class);
             when(board.getToken()).thenReturn(TEST_BOARD_TOKEN);
@@ -224,6 +250,9 @@ public class BoardServiceTest {
             assertEquals("200", response.responseCode());
             assertNotNull(response.data());
             assertEquals(TEST_BOARD_TOKEN, response.data().boardToken());
+            assertFalse(response.data().profiles().isEmpty());
+            assertNotNull(response.data().currentUserProfileId());
+            assertEquals("John Doe", response.data().profiles().get(0).username());
             verify(boardRoomCacheService).addUserToActiveSet(TEST_BOARD_TOKEN, TEST_USER_EMAIL);
             verify(boardRoomCacheService, never()).saveBoardData(anyString(), anyString());
         }
