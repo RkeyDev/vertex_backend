@@ -194,7 +194,7 @@ public class BoardService {
             BoardProfileRegistry.getProfilesForBoard(boardToken),
             currentProfile.id()
         );
-
+        log.info("Joining user {} assigned profile id: {}", userEmail, currentProfile.id());
         return new ApiResponse<>(
             "Board Room Joined",
             "Successfully joined board room",
