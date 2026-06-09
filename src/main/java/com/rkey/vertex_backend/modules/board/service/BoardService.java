@@ -20,9 +20,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
-import java.util.Set;
 
 import org.springframework.dao.DataAccessException;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -34,6 +34,9 @@ public class BoardService {
     private final BoardRoomCacheService boardRoomCacheService;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    
+    // Inject SimpMessagingTemplate to broadcast profile events to connected clients
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * Updates the board state in Redis. Verified against the active user set.
@@ -174,9 +177,10 @@ public class BoardService {
                 ? joiningUser.getAvatarUrl()
                 : "";
 
+       
         CursorProfileDTO currentProfile = BoardProfileRegistry.registerProfile(
                 boardToken,
-                null,
+                null, 
                 displayName,
                 avatarUrl
         );
@@ -194,7 +198,13 @@ public class BoardService {
             BoardProfileRegistry.getProfilesForBoard(boardToken),
             currentProfile.id()
         );
+        
         log.info("Joining user {} assigned profile id: {}", userEmail, currentProfile.id());
+
+        // FIX: Broadcast the new profile to existing connected users in the room
+        // Existing clients need this event so they can map the new ID to the displayName/avatar
+        messagingTemplate.convertAndSend("/topic/board/" + boardToken + "/profiles", currentProfile);
+
         return new ApiResponse<>(
             "Board Room Joined",
             "Successfully joined board room",
@@ -203,7 +213,6 @@ public class BoardService {
             null
         );
     }
-
 
     public BoardStateDTO getLatestBoardState(String boardToken) {
         log.debug("Sync Request: Fetching latest state for token {}", boardToken);
@@ -286,10 +295,12 @@ public class BoardService {
         if(boardStateDTO != null && boardToken != null && !boardStateDTO.boardStateJson().isEmpty()){
             try{
                 BoardEntity updatedBoard = boardRepository.findByToken(boardToken).orElse(null); // Fetch board by token
-                updatedBoard.setJsonData(boardStateDTO.boardStateJson()); // Update board data
-                boardRepository.save(updatedBoard); // Save updated board in DB
-                log.info("Successfully updated board data");
-                return true;
+                if(updatedBoard != null) {
+                    updatedBoard.setJsonData(boardStateDTO.boardStateJson()); // Update board data
+                    boardRepository.save(updatedBoard); // Save updated board in DB
+                    log.info("Successfully updated board data");
+                    return true;
+                }
             }
             catch(Exception e){
                 log.warn("An error occured while updating board data: " + e.getMessage());
