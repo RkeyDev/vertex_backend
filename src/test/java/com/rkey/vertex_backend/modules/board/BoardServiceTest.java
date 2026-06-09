@@ -24,6 +24,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.Collections;
 import java.util.List;
@@ -51,8 +52,12 @@ public class BoardServiceTest {
     @Mock
     private UserMapper userMapper;
 
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
+
     @InjectMocks
     private BoardService boardService;
+
 
     private static final String TEST_USER_EMAIL = "john@example.com";
     private static final String TEST_BOARD_TOKEN = "test-board-token-123";
