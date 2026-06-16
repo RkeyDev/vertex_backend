@@ -13,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,6 +24,7 @@ import com.rkey.vertex_backend.core.api.board.OwnedBoardsResponse;
 import com.rkey.vertex_backend.modules.board.models.dto.BoardStateDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.ComponentTransformDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.CursorProfileDTO;
+import com.rkey.vertex_backend.modules.board.models.dto.ExportBoardRequestDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.JoinBoardRequestDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.NewBoardDTO;
 import com.rkey.vertex_backend.modules.board.service.BoardService;
@@ -187,4 +189,40 @@ public class BoardController {
                 ? ResponseEntity.ok(response)
                 : ResponseEntity.badRequest().body(response);
     }
+
+
+    @PostMapping("/export-board")
+    public ResponseEntity<ApiResponse<Void>> handleExportBoard(
+            @Valid @RequestBody ExportBoardRequestDTO exportRequest,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            Principal principal) {
+
+        if (principal == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        String senderEmail = principal.getName();
+
+        // Strip "Bearer " prefix if present — the worker may need the raw token
+        String senderJwt = (authHeader != null && authHeader.startsWith("Bearer "))
+                ? authHeader.substring(7)
+                : authHeader;
+
+        log.info("Export requested [board={}, type={}, user={}]",
+                exportRequest.boardId(), exportRequest.fileType(), senderEmail);
+
+        ApiResponse<Void> response = boardService.queueBoardExport(
+            exportRequest.boardId(),
+            exportRequest.fileType(),
+            senderEmail,
+            senderJwt
+        );
+
+        return "200".equals(response.responseCode())
+                ? ResponseEntity.ok(response)
+                : ResponseEntity.internalServerError().body(response);
+    }
+
+
+
 }
