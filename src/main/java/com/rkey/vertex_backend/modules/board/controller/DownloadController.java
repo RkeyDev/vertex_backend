@@ -81,7 +81,7 @@ public class DownloadController {
      * Streams the export artifact identified by {@code requestId}.
      *
      * @param requestId   the export request ID from the STOMP notification
-     * @param userDetails resolved from the JWT — must match the stored sender
+     * @param userDetails resolved from the JWT - must match the stored sender
      */
     @GetMapping("/download/{requestId}")
     public ResponseEntity<Resource> downloadExport(
@@ -92,7 +92,6 @@ public class DownloadController {
             return ResponseEntity.status(401).build();
         }
 
-        // ── 1. Look up metadata ───────────────────────────────────────────────
         DownloadReadyDTO pending = notificationService.getPendingDownload(requestId);
 
         if (pending == null) {
@@ -101,14 +100,12 @@ public class DownloadController {
             return ResponseEntity.notFound().build();
         }
 
-        // ── 2. Authorisation guard ────────────────────────────────────────────
         if (!pending.senderEmail().equalsIgnoreCase(userDetails.getUsername())) {
             log.warn("Forbidden download attempt: requestId='{}' belongs to '{}', requested by '{}'",
                     requestId, pending.senderEmail(), userDetails.getUsername());
             return ResponseEntity.status(403).build();
         }
 
-        // ── 3. Resolve file on disk ───────────────────────────────────────────
         // outputPath from the worker is relative (e.g. output/email/boardId/file.zip).
         // Prepend the shared-volume root so Spring resolves it absolutely.
         Path filePath = Paths.get(exportOutputRoot, pending.outputPath()).normalize();
