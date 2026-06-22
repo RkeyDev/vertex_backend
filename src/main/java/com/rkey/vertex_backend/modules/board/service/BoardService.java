@@ -244,6 +244,56 @@ public class BoardService {
         );
     }
 
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Delete
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Permanently deletes a board owned by {@code requestingUserEmail}.
+     * Also evicts any live Redis state for that board token.
+     *
+     * @param boardId              the DB primary key of the board to delete
+     * @param requestingUserEmail  email resolved from the JWT - never trusted from the client
+     * @return an {@link ApiResponse} the controller can return directly
+     */
+    public ApiResponse<Void> deleteBoard(Long boardId, String requestingUserEmail) {
+        BoardEntity board = boardRepository.findById(boardId).orElse(null);
+
+        if (board == null) {
+            log.warn("Delete rejected: Board {} not found", boardId);
+            return new ApiResponse<>(
+                "Board Not Found",
+                "The requested board does not exist.",
+                null, "404", null
+            );
+        }
+
+        if (!board.getOwnerEmail().equalsIgnoreCase(requestingUserEmail)) {
+            log.warn("Delete rejected: User {} is not owner of board {}", requestingUserEmail, boardId);
+            return new ApiResponse<>(
+                "Forbidden",
+                "You do not have permission to delete this board.",
+                null, "403", null
+            );
+        }
+
+        // Evict from Redis before removing from DB so no stale data lingers
+        if (board.getToken() != null) {
+            boardRoomCacheService.clearCache(board.getToken());
+            log.info("Redis cache cleared for board token {}", board.getToken());
+        }
+
+        boardRepository.deleteById(boardId);
+        log.info("Board {} deleted by {}", boardId, requestingUserEmail);
+
+        return new ApiResponse<>(
+            "Board Deleted",
+            "The board has been permanently deleted.",
+            null, "200", null
+        );
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Export
     // ──────────────────────────────────────────────────────────────────────────

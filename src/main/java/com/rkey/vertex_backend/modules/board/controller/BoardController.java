@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
 
 import com.rkey.vertex_backend.core.api.ApiResponse;
 import com.rkey.vertex_backend.core.api.board.JoinBoardRoomResponseDTO;
@@ -224,5 +227,25 @@ public class BoardController {
     }
 
 
+
+
+    @DeleteMapping("/delete/{boardId}")
+    public ResponseEntity<ApiResponse<Void>> handleDeleteBoard(
+            @PathVariable Long boardId,
+            Principal principal) {
+
+        if (principal == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        ApiResponse<Void> response = boardService.deleteBoard(boardId, principal.getName());
+
+        return switch (response.responseCode()) {
+            case "200" -> ResponseEntity.ok(response);
+            case "404" -> ResponseEntity.status(404).body(response);
+            case "403" -> ResponseEntity.status(403).body(response);
+            default -> ResponseEntity.internalServerError().body(response);
+        };
+    }
 
 }

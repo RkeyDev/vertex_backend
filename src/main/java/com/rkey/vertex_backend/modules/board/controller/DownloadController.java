@@ -120,7 +120,7 @@ public class DownloadController {
             return ResponseEntity.internalServerError().build();
         }
 
-        // ── 4. Build response headers ─────────────────────────────────────────
+        // ── 4. Build response headers
         String fileType  = pending.fileType().toUpperCase();
         MediaType mime   = MIME_MAP.getOrDefault(fileType, MediaType.APPLICATION_OCTET_STREAM);
         String extension = EXTENSION_MAP.getOrDefault(fileType, "");
@@ -132,7 +132,7 @@ public class DownloadController {
         headers.setContentType(mime);
         headers.setContentLength(file.length());
 
-        // ── 5. Stream and clean up ────────────────────────────────────────────
+        // ── 5. Stream and clean up 
         log.info("Streaming export [requestId='{}', file='{}', size={} bytes, user='{}']",
                 requestId, filename, file.length(), userDetails.getUsername());
 
