@@ -57,13 +57,13 @@ public class DownloadController {
 
     private static final Map<String, MediaType> MIME_MAP = Map.of(
             "PDF",    MediaType.APPLICATION_PDF,
-            "JPEG",   MediaType.parseMediaType("application/zip"),
+            "JPEG_ZIP",   MediaType.parseMediaType("application/zip"),
             "VERTEX", MediaType.APPLICATION_OCTET_STREAM
     );
 
     private static final Map<String, String> EXTENSION_MAP = Map.of(
             "PDF",    ".pdf",
-            "JPEG",   ".zip",
+            "JPEG_ZIP",   ".zip",
             "VERTEX", ".vertex"
     );
 
@@ -96,6 +96,12 @@ public class DownloadController {
 
         if (pending == null) {
             log.warn("Download requested for unknown or expired requestId='{}' by user='{}'",
+                    requestId, userDetails.getUsername());
+            return ResponseEntity.notFound().build();
+        }
+
+        if ("JPEG_THUMBNAIL".equalsIgnoreCase(pending.fileType())) {
+            log.warn("Download requested for internal thumbnail requestId='{}' by user='{}'",
                     requestId, userDetails.getUsername());
             return ResponseEntity.notFound().build();
         }

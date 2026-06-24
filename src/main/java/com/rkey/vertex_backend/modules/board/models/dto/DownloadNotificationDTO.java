@@ -11,7 +11,7 @@ package com.rkey.vertex_backend.modules.board.models.dto;
  *                    allowing the UI to dismiss the in-progress indicator for the
  *                    correct board.
  * @param boardId     The exported board's token.
- * @param fileType    {@code "JPEG"} | {@code "PDF"} | {@code "VERTEX"} — lets
+ * @param fileType    {@code "JPEG_ZIP"} | {@code "PDF"} | {@code "VERTEX"} — lets
  *                    the frontend choose an appropriate icon / label.
  * @param downloadUrl Relative REST URL the client calls to stream the file;
  *                    e.g. {@code /api/v1/board/download/abc123}.

@@ -32,6 +32,9 @@ public class BoardEntity {
     @Column(name = "board_token", nullable = true)
     private String token;
 
+    @Column(name = "thumbnail_data_url", nullable = true, columnDefinition = "TEXT")
+    private String thumbnailDataUrl;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

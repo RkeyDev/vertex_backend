@@ -12,7 +12,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * @param requestId    Correlates back to the originating {@code ExportRequest}.
  * @param boardId      The board that was exported.
  * @param senderEmail  Used to route the STOMP notification to the correct user.
- * @param fileType     {@code "JPEG"} | {@code "PDF"} | {@code "VERTEX"}.
+ * @param fileType     {@code "JPEG_ZIP"} | {@code "PDF"} | {@code "VERTEX"} | {@code "JPEG_THUMBNAIL"}.
  * @param outputPath   Absolute path (shared Docker volume) to the finished artifact.
  * @param createdAt    ISO-8601 UTC timestamp for TTL / staleness checks.
  */

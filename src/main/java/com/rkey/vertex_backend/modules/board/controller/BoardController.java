@@ -228,7 +228,6 @@ public class BoardController {
 
 
 
-
     @DeleteMapping("/delete/{boardId}")
     public ResponseEntity<ApiResponse<Void>> handleDeleteBoard(
             @PathVariable Long boardId,

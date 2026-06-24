@@ -306,7 +306,7 @@ public class BoardService {
      * self-contained payload and never needs to call back into the backend.
      *
      * @param boardId     the board's stable token
-     * @param fileType    desired output format (PDF / JPEG / VERTEX)
+     * @param fileType    desired output format (PDF / JPEG_ZIP / VERTEX)
      * @param senderEmail resolved from the JWT principal — never trusted from the client
      * @param senderJwt   raw Bearer token, forwarded so the worker can authenticate
      *                    Playwright requests if needed

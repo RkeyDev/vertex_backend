@@ -3,13 +3,19 @@ package com.rkey.vertex_backend.modules.board.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rkey.vertex_backend.modules.board.models.dto.DownloadNotificationDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.DownloadReadyDTO;
+import com.rkey.vertex_backend.modules.board.repository.BoardRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.Base64;
 
 /**
  * Handles the two responsibilities that follow a completed export:
@@ -47,6 +53,10 @@ public class DownloadNotificationService {
     private final StringRedisTemplate redisTemplate;
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
+    private final BoardRepository boardRepository;
+
+    @Value("${export.output.root:/app/exports}")
+    private String exportOutputRoot;
 
     /**
      * Called by {@link DownloadQueuePoller} for each item it pops from the
@@ -55,6 +65,11 @@ public class DownloadNotificationService {
      * @param dto the deserialised payload from the Python worker
      */
     public void handleDownloadReady(DownloadReadyDTO dto) {
+        if (isThumbnail(dto)) {
+            persistBoardThumbnail(dto);
+            return;
+        }
+
         persistPendingDownload(dto);
         broadcastNotification(dto);
     }
@@ -95,6 +110,36 @@ public class DownloadNotificationService {
     // ──────────────────────────────────────────────────────────────────────────
     // Private helpers
     // ──────────────────────────────────────────────────────────────────────────
+
+    private void persistBoardThumbnail(DownloadReadyDTO dto) {
+        try {
+            Path root = Paths.get(exportOutputRoot).toAbsolutePath().normalize();
+            Path imagePath = root.resolve(dto.outputPath()).normalize();
+
+            if (!imagePath.startsWith(root)) {
+                log.warn("Rejected thumbnail outside export root [requestId={}, path={}]", dto.requestId(), imagePath);
+                return;
+            }
+
+            byte[] bytes = Files.readAllBytes(imagePath);
+            String dataUrl = "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(bytes);
+
+            boardRepository.findByToken(dto.boardId()).ifPresentOrElse(board -> {
+                board.setThumbnailDataUrl(dataUrl);
+                boardRepository.save(board);
+                log.info("Board thumbnail saved [board={}, requestId={}, bytes={}]",
+                        dto.boardId(), dto.requestId(), bytes.length);
+            }, () -> log.warn("Thumbnail completed for unknown board token [board={}, requestId={}]",
+                    dto.boardId(), dto.requestId()));
+        } catch (Exception e) {
+            log.error("Failed to persist board thumbnail [requestId={}, board={}]: {}",
+                    dto.requestId(), dto.boardId(), e.getMessage(), e);
+        }
+    }
+
+    private static boolean isThumbnail(DownloadReadyDTO dto) {
+        return dto.fileType() != null && "JPEG_THUMBNAIL".equalsIgnoreCase(dto.fileType());
+    }
 
     private void persistPendingDownload(DownloadReadyDTO dto) {
         String key = PENDING_KEY_PREFIX + dto.requestId();

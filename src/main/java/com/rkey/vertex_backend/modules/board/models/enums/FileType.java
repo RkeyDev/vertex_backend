@@ -9,9 +9,10 @@ import java.util.Arrays;
 @Getter
 @RequiredArgsConstructor
 public enum FileType {
-    JPEG("JPEG"),
+    JPEG_ZIP("JPEG_ZIP"),
     PDF("PDF"),
-    VERTEX("VERTEX");
+    VERTEX("VERTEX"),
+    JPEG_THUMBNAIL("JPEG_THUMBNAIL");
 
     @JsonValue
     private final String value;
