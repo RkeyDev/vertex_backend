@@ -29,9 +29,6 @@ jobs:
     - name: Run Linter and Build
       run: ./mvnw clean verify -Dspring.profiles.active=test
 
-    - name: Build and test with Maven
-      run: ./mvnw clean verify -Dspring.profiles.active=test
-
     - name: Report Test Results
       if: always()
       uses: actions/upload-artifact@v4
