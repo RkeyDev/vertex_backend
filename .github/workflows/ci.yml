@@ -26,6 +26,9 @@ jobs:
         distribution: 'temurin'
         cache: maven
 
+    - name: Run Linter and Build
+      run: ./mvnw clean verify -Dspring.profiles.active=test
+
     - name: Build and test with Maven
       run: ./mvnw clean verify -Dspring.profiles.active=test
 
