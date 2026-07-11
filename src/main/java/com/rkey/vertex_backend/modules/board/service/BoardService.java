@@ -41,9 +41,6 @@ public class BoardService {
     private final ExportQueueService exportQueueService;
     private final ObjectMapper objectMapper;
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Board State
-    // ──────────────────────────────────────────────────────────────────────────
 
     /**
      * Updates the board state in Redis. Verified against the active user set.
@@ -120,9 +117,6 @@ public class BoardService {
         return false;
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Authorization
-    // ──────────────────────────────────────────────────────────────────────────
 
     public boolean canUserSyncBoard(String boardToken, String updaterEmail) {
         if ("anonymous".equals(updaterEmail)) {
@@ -138,10 +132,6 @@ public class BoardService {
     public void ensureUserInActiveSet(String boardToken, String userEmail) {
         boardRoomCacheService.addUserToActiveSet(boardToken, userEmail);
     }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Board CRUD
-    // ──────────────────────────────────────────────────────────────────────────
 
     /**
      * Creates a new persistent board entity in PostgreSQL.
@@ -247,10 +237,6 @@ public class BoardService {
     }
 
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Delete
-    // ─────────────────────────────────────────────────────────────────────────
-
     /**
      * Permanently deletes a board owned by {@code requestingUserEmail}.
      * Also evicts any live Redis state for that board token.
@@ -295,10 +281,6 @@ public class BoardService {
             null, "200", null
         );
     }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Export
-    // ──────────────────────────────────────────────────────────────────────────
 
     /**
      * Builds and enqueues a board export request onto the Redis queue consumed
@@ -349,9 +331,6 @@ public class BoardService {
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Private helpers
-    // ──────────────────────────────────────────────────────────────────────────
 
     private BoardEntity resolveBoard(JoinBoardRequestDTO requestDTO) {
         if (requestDTO.boardToken() != null && !requestDTO.boardToken().isBlank()) {
@@ -405,6 +384,7 @@ public class BoardService {
 
         String boardName = null;
         String canvasJson = null;
+        String thumbnailDataUrl = null;
 
         try (java.util.zip.ZipInputStream zipStream = new java.util.zip.ZipInputStream(file.getInputStream())) {
             java.util.zip.ZipEntry entry;
@@ -427,6 +407,9 @@ public class BoardService {
                 } else if ("canvas.json".equals(entryName)) {
                     byte[] buffer = zipStream.readAllBytes();
                     canvasJson = new String(buffer, java.nio.charset.StandardCharsets.UTF_8);
+                } else if ("thumbnail.jpeg".equals(entryName)) {
+                    byte[] buffer = zipStream.readAllBytes();
+                    thumbnailDataUrl = "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(buffer);
                 }
                 zipStream.closeEntry();
             }
@@ -470,6 +453,9 @@ public class BoardService {
             board.setBoardName(boardName);
             board.setOwnerEmail(ownerEmail);
             board.setJsonData(canvasJson);
+            if (thumbnailDataUrl != null) {
+                board.setThumbnailDataUrl(thumbnailDataUrl);
+            }
             boardRepository.save(board);
 
             String boardToken = board.getToken();
