@@ -16,6 +16,7 @@ import com.rkey.vertex_backend.modules.board.service.BoardProfileRegistry;
 import com.rkey.vertex_backend.modules.board.service.BoardRoomCacheService;
 import com.rkey.vertex_backend.modules.board.service.BoardService;
 import com.rkey.vertex_backend.core.api.board.NewBoardRoomResponseDTO;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,9 @@ public class BoardServiceTest {
 
     @Mock
     private SimpMessagingTemplate messagingTemplate;
+
+    @Mock
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private BoardService boardService;
@@ -293,7 +297,7 @@ public class BoardServiceTest {
         void whenResolvingByNameAndOwnerEmail_shouldJoinSuccessfully() {
             JoinBoardRequestDTO request = new JoinBoardRequestDTO(null, TEST_BOARD_NAME, TEST_USER_EMAIL);
             BoardEntity board = buildBoard();
-            when(boardRepository.findByOwnerEmailAndBoardName(TEST_USER_EMAIL, TEST_BOARD_NAME))
+            when(boardRepository.findFirstByOwnerEmailAndBoardName(TEST_USER_EMAIL, TEST_BOARD_NAME))
                     .thenReturn(Optional.of(board));
             when(boardRoomCacheService.isRoomActive(TEST_BOARD_TOKEN)).thenReturn(true);
 
@@ -301,7 +305,7 @@ public class BoardServiceTest {
                     boardService.joinBoardRoom(request, TEST_USER_EMAIL);
 
             assertEquals("200", response.responseCode());
-            verify(boardRepository).findByOwnerEmailAndBoardName(TEST_USER_EMAIL, TEST_BOARD_NAME);
+            verify(boardRepository).findFirstByOwnerEmailAndBoardName(TEST_USER_EMAIL, TEST_BOARD_NAME);
         }
 
         @Test
@@ -474,6 +478,76 @@ public class BoardServiceTest {
             boardService.ensureUserInActiveSet(anotherToken, anotherEmail);
 
             verify(boardRoomCacheService).addUserToActiveSet(eq(anotherToken), eq(anotherEmail));
+        }
+    }
+
+    @Nested
+    class ImportBoard {
+
+        @Test
+        void whenFileIsEmpty_shouldReturnFailure() {
+            org.springframework.web.multipart.MultipartFile file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "empty.vertex", "application/octet-stream", new byte[0]);
+
+            ApiResponse<JoinBoardRoomResponseDTO> response = boardService.importBoard(file, TEST_USER_EMAIL);
+
+            assertEquals("400", response.responseCode());
+            assertTrue(response.name().contains("Failed"));
+        }
+
+        @Test
+        void whenFileIsNotVertex_shouldReturnFailure() {
+            org.springframework.web.multipart.MultipartFile file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "test.txt", "text/plain", "hello".getBytes());
+
+            ApiResponse<JoinBoardRoomResponseDTO> response = boardService.importBoard(file, TEST_USER_EMAIL);
+
+            assertEquals("400", response.responseCode());
+            assertTrue(response.name().contains("Failed"));
+        }
+
+        @Test
+        void whenFileIsValid_shouldImportSuccessfully() throws Exception {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(baos)) {
+                zos.putNextEntry(new java.util.zip.ZipEntry("metadata.json"));
+                zos.write("{\"boardName\":\"My Imported Board\"}".getBytes());
+                zos.closeEntry();
+
+                zos.putNextEntry(new java.util.zip.ZipEntry("canvas.json"));
+                zos.write("{\"components\":[],\"arrows\":[]}".getBytes());
+                zos.closeEntry();
+            }
+            byte[] zipBytes = baos.toByteArray();
+
+            org.springframework.web.multipart.MultipartFile file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "test.vertex", "application/octet-stream", zipBytes);
+
+            java.util.Map<String, Object> mockMetadata = new java.util.HashMap<>();
+            mockMetadata.put("boardName", "My Imported Board");
+            when(objectMapper.readValue(anyString(), eq(java.util.Map.class))).thenReturn(mockMetadata);
+
+            UserEntity user = UserEntity.builder()
+                    .email(TEST_USER_EMAIL)
+                    .firstName("John")
+                    .lastName("Doe")
+                    .build();
+            when(userRepository.findByEmail(TEST_USER_EMAIL)).thenReturn(Optional.of(user));
+
+            when(boardRepository.save(any(BoardEntity.class))).thenAnswer(invocation -> {
+                BoardEntity b = invocation.getArgument(0);
+                b.setToken(TEST_BOARD_TOKEN);
+                return b;
+            });
+
+            ApiResponse<JoinBoardRoomResponseDTO> response = boardService.importBoard(file, TEST_USER_EMAIL);
+
+            assertEquals("200", response.responseCode());
+            assertNotNull(response.data());
+            assertEquals("My Imported Board", response.data().boardName());
+            assertEquals(TEST_BOARD_TOKEN, response.data().boardToken());
+            verify(boardRoomCacheService).saveBoardData(eq(TEST_BOARD_TOKEN), anyString());
+            verify(boardRoomCacheService).addUserToActiveSet(TEST_BOARD_TOKEN, TEST_USER_EMAIL);
         }
     }
 }

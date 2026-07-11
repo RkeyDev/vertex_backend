@@ -175,6 +175,31 @@ public class BoardController {
             return ResponseEntity.internalServerError().build();
         }
     }
+
+    @PostMapping("/import")
+    public ResponseEntity<ApiResponse<JoinBoardRoomResponseDTO>> handleImportBoard(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            Principal principal) {
+        
+        if (principal == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        try {
+            ApiResponse<JoinBoardRoomResponseDTO> response = boardService.importBoard(file, principal.getName());
+            
+            if ("200".equals(response.responseCode())) {
+                return ResponseEntity.ok(response);
+            } else if ("500".equals(response.responseCode())) {
+                return ResponseEntity.internalServerError().body(response);
+            }
+            return ResponseEntity.badRequest().body(response);
+            
+        } catch (Exception e) {
+            log.error("Critical error in handleImportBoard for user {}: ", principal.getName(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
     
     @GetMapping("/boards")
     public ResponseEntity<ApiResponse<OwnedBoardsResponse>> handleGetOwnedBoards(

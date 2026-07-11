@@ -76,6 +76,7 @@ public class DownloadController {
     private String exportOutputRoot;
 
     private final DownloadNotificationService notificationService;
+    private final com.rkey.vertex_backend.modules.board.repository.BoardRepository boardRepository;
 
     /**
      * Streams the export artifact identified by {@code requestId}.
@@ -127,10 +128,21 @@ public class DownloadController {
         }
 
         // ── 4. Build response headers
+        // Fetch boardName from the database, fallback to boardId if not found
+        String boardName = boardRepository.findByToken(pending.boardId())
+                .map(board -> board.getBoardName())
+                .orElse(pending.boardId());
+                
+        // Ensure the filename is safe for file systems
+        String safeBoardName = boardName.replaceAll("[^a-zA-Z0-9-_\\s]", "").trim();
+        if (safeBoardName.isEmpty()) {
+            safeBoardName = pending.boardId();
+        }
+
         String fileType  = pending.fileType().toUpperCase();
         MediaType mime   = MIME_MAP.getOrDefault(fileType, MediaType.APPLICATION_OCTET_STREAM);
         String extension = EXTENSION_MAP.getOrDefault(fileType, "");
-        String filename  = pending.boardId() + extension;
+        String filename  = safeBoardName + extension;
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentDisposition(

@@ -16,6 +16,7 @@ import com.rkey.vertex_backend.modules.board.models.dto.JoinBoardRequestDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.NewBoardDTO;
 import com.rkey.vertex_backend.modules.board.models.enums.FileType;
 import com.rkey.vertex_backend.modules.board.repository.BoardRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class BoardService {
     private final UserMapper userMapper;
     private final SimpMessagingTemplate messagingTemplate;
     private final ExportQueueService exportQueueService;
+    private final ObjectMapper objectMapper;
 
     // ──────────────────────────────────────────────────────────────────────────
     // Board State
@@ -357,7 +359,7 @@ public class BoardService {
         }
         if (requestDTO.boardName() != null && requestDTO.ownerEmail() != null) {
             return boardRepository
-                    .findByOwnerEmailAndBoardName(requestDTO.ownerEmail(), requestDTO.boardName())
+                    .findFirstByOwnerEmailAndBoardName(requestDTO.ownerEmail(), requestDTO.boardName())
                     .orElse(null);
         }
         return null;
@@ -381,6 +383,137 @@ public class BoardService {
         String lastName  = user.getLastName()  != null ? user.getLastName().trim()  : "";
         String fullName  = (firstName + " " + lastName).trim();
         return fullName.isEmpty() ? fallbackEmail : fullName;
+    }
+
+    /**
+     * Imports a board from a compressed .vertex archive file.
+     * Decompresses metadata.json and canvas.json, creates the board database entity,
+     * and populates/caches it in Redis.
+     */
+    @Transactional
+    public ApiResponse<JoinBoardRoomResponseDTO> importBoard(
+            org.springframework.web.multipart.MultipartFile file, 
+            String ownerEmail) {
+        if (file == null || file.isEmpty()) {
+            return new ApiResponse<>("Import Failed", "Uploaded file is empty", null, "400", null);
+        }
+
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.endsWith(".vertex")) {
+            return new ApiResponse<>("Import Failed", "Only .vertex files are supported", null, "400", null);
+        }
+
+        String boardName = null;
+        String canvasJson = null;
+
+        try (java.util.zip.ZipInputStream zipStream = new java.util.zip.ZipInputStream(file.getInputStream())) {
+            java.util.zip.ZipEntry entry;
+            while ((entry = zipStream.getNextEntry()) != null) {
+                String entryName = entry.getName();
+                if (entryName.contains("..") || entryName.contains("/") || entryName.contains("\\")) {
+                    continue;
+                }
+                if ("metadata.json".equals(entryName)) {
+                    byte[] buffer = zipStream.readAllBytes();
+                    String metadataJson = new String(buffer, java.nio.charset.StandardCharsets.UTF_8);
+                    try {
+                        java.util.Map<String, Object> metadata = objectMapper.readValue(metadataJson, java.util.Map.class);
+                        if (metadata != null && metadata.get("boardName") != null) {
+                            boardName = (String) metadata.get("boardName");
+                        }
+                    } catch (Exception e) {
+                        log.warn("Failed to parse metadata.json from imported board", e);
+                    }
+                } else if ("canvas.json".equals(entryName)) {
+                    byte[] buffer = zipStream.readAllBytes();
+                    canvasJson = new String(buffer, java.nio.charset.StandardCharsets.UTF_8);
+                }
+                zipStream.closeEntry();
+            }
+        } catch (Exception e) {
+            log.error("Failed to read zip archive from imported file", e);
+            return new ApiResponse<>("Import Failed", "Failed to parse .vertex file", null, "500", null);
+        }
+
+        if (canvasJson == null || canvasJson.trim().isEmpty()) {
+            return new ApiResponse<>("Import Failed", "Invalid .vertex file: canvas data is missing or empty", null, "400", null);
+        }
+
+        try {
+            com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(canvasJson);
+            // If canvas.json was written as a JSON-encoded string (double-encoded from legacy exports),
+            // the root node will be a TextNode. Unwrap it to get the actual JSON object string.
+            if (rootNode.isTextual()) {
+                canvasJson = rootNode.asText();
+                // Validate that the unwrapped value is itself a valid JSON object
+                com.fasterxml.jackson.databind.JsonNode innerNode = objectMapper.readTree(canvasJson);
+                if (!innerNode.isObject()) {
+                    return new ApiResponse<>("Import Failed", "Invalid JSON structure in canvas file", null, "400", null);
+                }
+            } else if (!rootNode.isObject()) {
+                return new ApiResponse<>("Import Failed", "Invalid JSON structure in canvas file", null, "400", null);
+            }
+        } catch (Exception e) {
+            return new ApiResponse<>("Import Failed", "Invalid JSON data in canvas file", null, "400", null);
+        }
+
+        if (boardName == null || boardName.trim().isEmpty()) {
+            String baseName = filename.substring(0, filename.lastIndexOf("."));
+            boardName = baseName.replaceAll("[^a-zA-Z0-9-_\\s]", "").trim();
+            if (boardName.isEmpty()) {
+                boardName = "Imported Board";
+            }
+        }
+
+        try {
+            BoardEntity board = new BoardEntity();
+            board.setBoardName(boardName);
+            board.setOwnerEmail(ownerEmail);
+            board.setJsonData(canvasJson);
+            boardRepository.save(board);
+
+            String boardToken = board.getToken();
+
+            boardRoomCacheService.saveBoardData(boardToken, canvasJson);
+            boardRoomCacheService.addUserToActiveSet(boardToken, ownerEmail);
+
+            UserEntity joiningUser = userRepository.findByEmail(ownerEmail).orElse(null);
+            String displayName = resolveDisplayName(joiningUser, ownerEmail);
+            String avatarUrl = (joiningUser != null && joiningUser.getAvatarUrl() != null)
+                    ? joiningUser.getAvatarUrl()
+                    : "";
+
+            CursorProfileDTO currentProfile = BoardProfileRegistry.registerProfile(
+                    boardToken, null, displayName, avatarUrl);
+
+            UserSummary ownerData = userRepository.findByEmail(ownerEmail)
+                    .map(userMapper::getUserSummary)
+                    .orElseGet(() -> new UserSummary(
+                            "First", "Last",
+                            ownerEmail, ownerEmail, null));
+
+            JoinBoardRoomResponseDTO responseData = new JoinBoardRoomResponseDTO(
+                boardName,
+                boardToken,
+                ownerData,
+                canvasJson,
+                BoardProfileRegistry.getProfilesForBoard(boardToken),
+                currentProfile.id()
+            );
+
+            log.info("Imported board '{}' successfully created for owner: {}", boardName, ownerEmail);
+            messagingTemplate.convertAndSend("/topic/board/" + boardToken + "/profiles", currentProfile);
+
+            return new ApiResponse<>("Board Imported", "Successfully imported board", responseData, "200", null);
+
+        } catch (DataAccessException e) {
+            log.error("Database error while creating imported board '{}' for user '{}': {}",
+                    boardName, ownerEmail, e.getMessage());
+            return new ApiResponse<>("Database Error", "Could not save the board due to a persistence issue", null, "500", null);
+        } catch (Exception e) {
+            log.error("Unexpected error during board import: ", e);
+            return new ApiResponse<>("Internal Server Error", "An unexpected error occurred", null, "500", null);
+        }
     }
 
     private static ApiResponse<NewBoardRoomResponseDTO> boardStateUpdateFailed() {
