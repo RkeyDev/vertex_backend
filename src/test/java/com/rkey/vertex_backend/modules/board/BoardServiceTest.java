@@ -527,6 +527,10 @@ public class BoardServiceTest {
             mockMetadata.put("boardName", "My Imported Board");
             when(objectMapper.readValue(anyString(), eq(java.util.Map.class))).thenReturn(mockMetadata);
 
+            com.fasterxml.jackson.databind.JsonNode mockNode = mock(com.fasterxml.jackson.databind.JsonNode.class);
+            when(mockNode.isObject()).thenReturn(true);
+            when(objectMapper.readTree(anyString())).thenReturn(mockNode);
+
             UserEntity user = UserEntity.builder()
                     .email(TEST_USER_EMAIL)
                     .firstName("John")
