@@ -282,6 +282,31 @@ public class BoardService {
         );
     }
 
+
+    /**
+     * Renames a board. Only the board owner can rename it.
+     */
+    @Transactional
+    public ApiResponse<Void> renameBoard(String boardToken, String newName, String requestingUserEmail) {
+        BoardEntity board = boardRepository.findByToken(boardToken).orElse(null);
+
+        if (board == null) {
+            log.warn("Rename rejected: Board with token {} not found", boardToken);
+            return new ApiResponse<>("Board Not Found", "The requested board does not exist.", null, "404", null);
+        }
+
+        if (!board.getOwnerEmail().equalsIgnoreCase(requestingUserEmail)) {
+            log.warn("Rename rejected: User {} is not owner of board {}", requestingUserEmail, boardToken);
+            return new ApiResponse<>("Forbidden", "You do not have permission to rename this board.", null, "403", null);
+        }
+
+        board.setBoardName(newName.trim());
+        boardRepository.save(board);
+        log.info("Board {} renamed to '{}' by {}", boardToken, newName.trim(), requestingUserEmail);
+
+        return new ApiResponse<>("Board Renamed", "The board has been successfully renamed.", null, "200", null);
+    }
+
     /**
      * Builds and enqueues a board export request onto the Redis queue consumed
      * by the {@code vertex_export_worker} Python service.

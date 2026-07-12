@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 
 
 import com.rkey.vertex_backend.core.api.ApiResponse;
@@ -30,6 +31,7 @@ import com.rkey.vertex_backend.modules.board.models.dto.CursorProfileDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.ExportBoardRequestDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.JoinBoardRequestDTO;
 import com.rkey.vertex_backend.modules.board.models.dto.NewBoardDTO;
+import com.rkey.vertex_backend.modules.board.models.dto.RenameBoardDTO;
 import com.rkey.vertex_backend.modules.board.service.BoardService;
 import com.rkey.vertex_backend.modules.board.service.BoardProfileRegistry;
 import com.rkey.vertex_backend.modules.board.service.BoardStatePatchService;
@@ -263,6 +265,27 @@ public class BoardController {
         }
 
         ApiResponse<Void> response = boardService.deleteBoard(boardId, principal.getName());
+
+        return switch (response.responseCode()) {
+            case "200" -> ResponseEntity.ok(response);
+            case "404" -> ResponseEntity.status(404).body(response);
+            case "403" -> ResponseEntity.status(403).body(response);
+            default -> ResponseEntity.internalServerError().body(response);
+        };
+    }
+
+
+    @PutMapping("/rename/{boardToken}")
+    public ResponseEntity<ApiResponse<Void>> handleRenameBoard(
+            @PathVariable String boardToken,
+            @Valid @RequestBody RenameBoardDTO renameRequest,
+            Principal principal) {
+
+        if (principal == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        ApiResponse<Void> response = boardService.renameBoard(boardToken, renameRequest.boardName(), principal.getName());
 
         return switch (response.responseCode()) {
             case "200" -> ResponseEntity.ok(response);
