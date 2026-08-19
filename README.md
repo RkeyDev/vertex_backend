@@ -182,9 +182,11 @@ A project is more credible when it's honest about what it hasn't solved yet. Doc
 
 ## Screenshots
 
-
-![Dashboard](docs/screenshots/dashboard.png)
 ![Real-time board editing with live cursors](docs/screenshots/board.png)
+![Dashboard](docs/screenshots/dashboard.png)
+![Dashboard](docs/screenshots/profile-page.png)
+![Dashboard](docs/screenshots/register.png)
+![Real-time board editing with live cursors](docs/screenshots/login.png)
 
 ---
 
