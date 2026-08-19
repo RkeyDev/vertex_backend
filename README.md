@@ -197,9 +197,9 @@ A project is more credible when it's honest about what it hasn't solved yet. Doc
 
 ```bash
 # clone all three repositories (backend, frontend, export worker)
-git clone https://github.com/RkeyDev/vertex-backend.git
-git clone https://github.com/RkeyDev/vertex-frontend.git
-git clone https://github.com/RkeyDev/vertex-export-worker.git
+git clone https://github.com/RkeyDev/vertex_backend.git
+git clone https://github.com/RkeyDev/ertex_client.git
+git clone https://github.com/RkeyDev/vertex_export_worker.git
 
 # spin up the full stack (backend, 3 export-worker replicas, Postgres, Redis)
 docker compose up --build
