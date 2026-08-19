@@ -115,19 +115,20 @@ public class DownloadController {
 
         // outputPath from the worker is relative (e.g. output/email/boardId/file.zip).
         // Prepend the shared-volume root so Spring resolves it absolutely.
-        Path filePath = Paths.get(exportOutputRoot, pending.outputPath()).normalize();
+        Path exportRoot = Paths.get(exportOutputRoot).toAbsolutePath().normalize();
+        Path filePath = exportRoot.resolve(pending.outputPath()).normalize();
         File file = filePath.toFile();
 
         log.debug("Resolving export artifact [requestId='{}', root='{}', relative='{}', absolute='{}']",
                 requestId, exportOutputRoot, pending.outputPath(), filePath);
 
-        if (!file.exists() || !file.isFile()) {
+        if (!filePath.startsWith(exportRoot) || !file.exists() || !file.isFile()) {
             log.error("Export artifact not found on disk [requestId='{}', path='{}']",
                     requestId, filePath);
             return ResponseEntity.internalServerError().build();
         }
 
-        // ── 4. Build response headers
+        // Build response headers
         // Fetch boardName from the database, fallback to boardId if not found
         String boardName = boardRepository.findByToken(pending.boardId())
                 .map(board -> board.getBoardName())
@@ -150,7 +151,7 @@ public class DownloadController {
         headers.setContentType(mime);
         headers.setContentLength(file.length());
 
-        // ── 5. Stream and clean up 
+        // Stream and clean up 
         log.info("Streaming export [requestId='{}', file='{}', size={} bytes, user='{}']",
                 requestId, filename, file.length(), userDetails.getUsername());
 

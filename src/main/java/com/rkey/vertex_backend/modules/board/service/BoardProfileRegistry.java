@@ -57,8 +57,12 @@ public final class BoardProfileRegistry {
     }
 
     public static void removeProfile(String boardToken, String profileId) {
+        if (boardToken == null || profileId == null) {
+            return;
+        }
+
         Map<String, CursorProfileDTO> boardProfiles = profilesByBoard.get(boardToken);
-        if (boardProfiles == null || profileId == null) {
+        if (boardProfiles == null) {
             return;
         }
 

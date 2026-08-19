@@ -262,7 +262,7 @@ public class AuthService {
 
         UserEntity user = tokenEntity.getUser();
         UserSummary userSummary = new UserSummary(
-            user.getFirstName(), user.getLastName(), user.getEmail(), user.getUsername(), user.getAvatarUrl()
+            user.getFirstName(), user.getLastName(), user.getEmail(), user.getProfileUsername(), user.getAvatarUrl()
         );
         
         String newAccessToken = jwtService.generateToken(user);

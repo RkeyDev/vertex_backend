@@ -156,7 +156,8 @@ public class BoardRoomCacheService {
         String userKey = BOARD_PREFIX + boardId + USER_SET_SUFFIX;
         try {
             java.util.List<String> keys = java.util.List.of(stateKey, userKey);
-            return Boolean.TRUE.equals(redisTemplate.delete(Objects.requireNonNull(keys)));
+            Long deletedKeys = redisTemplate.delete(Objects.requireNonNull(keys));
+            return deletedKeys != null && deletedKeys > 0;
         } catch (Exception e) {
             log.error("Error clearing cache for board {}: {}", boardId, e.getMessage());
             return false;

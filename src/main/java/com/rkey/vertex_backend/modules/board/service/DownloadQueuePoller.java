@@ -72,9 +72,6 @@ public class DownloadQueuePoller {
         log.info("DownloadQueuePoller stopped.");
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Private
-    // ──────────────────────────────────────────────────────────────────────────
 
     private void pollLoop() {
         while (running.get()) {

@@ -107,9 +107,6 @@ public class DownloadNotificationService {
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Private helpers
-    // ──────────────────────────────────────────────────────────────────────────
 
     private void persistBoardThumbnail(DownloadReadyDTO dto) {
         try {
@@ -178,6 +175,6 @@ public class DownloadNotificationService {
      * ambiguity in the topic string.
      */
     private static String sanitiseEmailForTopic(String email) {
-        return email.replace("@", "_at_").replace(".", "_");
+        return email.replace("+", "_at_").replace("@", "_at_").replace(".", "_");
     }
 }

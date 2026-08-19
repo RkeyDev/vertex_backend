@@ -33,6 +33,10 @@ public class ExportQueueService {
      * @throws ExportQueueException if serialisation or the Redis write fails
      */
     public void enqueue(ExportRequestDTO request) {
+        if (request == null || request.requestId() == null) {
+            throw new IllegalArgumentException("Export request and requestId must not be null");
+        }
+
         String payload;
         try {
             payload = objectMapper.writeValueAsString(request);
