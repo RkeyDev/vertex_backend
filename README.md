@@ -1,5 +1,8 @@
 # Vertex
 
+> **⚠️ Status: Early Development**
+> Vertex is currently at ~90% completion of its first stable release. Core features are functional, but some minor bugs and rough edges remain. Not yet recommended for production use - feedback and issue reports are welcome.
+
 **A real-time collaborative UML diagramming platform** - think Figma, but for system design and class diagrams. Multiple users can open the same board, drag components, draw relationships, and see each other's cursors move with sub-second latency, all while the state stays durable and recoverable.
 
 This repository documents the full system: a Spring Boot backend, a React/Konva frontend, and a standalone Python export worker - three services with three different architectural jobs, each chosen deliberately rather than defaulted to.
