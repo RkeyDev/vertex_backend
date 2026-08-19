@@ -1,6 +1,5 @@
 ### Build the application ###
-# Using Eclipse Temurin for the JDK
-FROM eclipse-temurin:21-jdk-alpine AS build
+FROM maven:3.9.14-eclipse-temurin-21-alpine AS build
 WORKDIR /app
 
 # Copy the build files first to leverage Docker layer caching
