@@ -90,7 +90,7 @@ Every choice below was made to solve a specific problem this project actually ha
 | Technology | Why it's here |
 |---|---|
 | **Java 21 + Spring Boot 3.2** | Virtual threads make blocking I/O (JPA queries, scheduled persistence jobs) cheap to run concurrently without hand-rolled async plumbing. Spring's ecosystem (Security, WebSockets, Data JPA, Validation) covers auth, real-time transport, and persistence with mature, well-documented primitives - important for a solo-built project that still needs to be production-credible. |
-| **PostgreSQL** | The system needs a durable source of truth for users, boards, and tokens that survives restarts and supports relational integrity (a board belongs to a user; a refresh token belongs to a session). Redis is fast but not meant to be your only copy of the data. |
+| **PostgreSQL** | The system needs a durable source of truth for users, boards, and tokens that survives restarts and supports relational integrity (a board belongs to a user; a refresh token belongs to a session). Redis is fast but not meant to be the only copy of the data. |
 | **Redis** | Two very different jobs, one tool: (1) a low-latency cache for "what does this board look like right now" so the API doesn't hit Postgres on every cursor twitch, and (2) a message queue (`export:queue` / `download:queue`) decoupling the API from the export worker. Using Redis for both avoids introducing a second piece of infrastructure just for queuing. |
 | **STOMP over WebSockets** | Board sync, transforms, and download notifications are structured, addressable messages (subscribe to `/topic/board/{id}`). STOMP gives that structure for free instead of hand-rolling a message envelope over raw WebSockets. |
 | **Raw binary WebSockets (for cursors only)** | Cursor position is the highest-frequency, lowest-value-per-message data in the system - dozens of updates per second, per user. A fixed 12-byte binary packet is dramatically cheaper to serialize and transmit than a JSON envelope, and this is the one place in the app where that difference is actually visible to the user as latency. |
@@ -217,4 +217,4 @@ The export worker's suite (Pytest) covers request parsing, format routing, expor
 
 ---
 
-*Built by [Roei](https://github.com/RkeyDev) as a portfolio project focused on distributed systems and backend architecture.*
+Built by **[Roei Kleiner](https://github.com/RkeyDev)** as a portfolio project focused on distributed systems and backend architecture.
