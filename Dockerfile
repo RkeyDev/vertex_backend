@@ -8,11 +8,11 @@ COPY .mvn .mvn
 COPY pom.xml .
 
 # Download dependencies (this layer is cached unless pom.xml changes)
-RUN ./mvnw dependency:go-offline
+RUN mvn dependency:go-offline
 
 # Copy the source code and build the application
 COPY src src
-RUN ./mvnw package -DskipTests
+RUN mvn package -DskipTests
 
 ### Create the production-ready runtime image ###
 FROM eclipse-temurin:21-jre-alpine
